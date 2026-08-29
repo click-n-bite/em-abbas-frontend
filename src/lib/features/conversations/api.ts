@@ -4,9 +4,6 @@ import type { Conversation, ConversationFilter, Message } from "./types"
 export const conversationsApi = {
 	async list(status: ConversationFilter = "all", signal?: AbortSignal): Promise<Conversation[]> {
 		const payload = await request<unknown>(`/conversations?status=${status}`, { signal })
-
-		console.log("payload messages", payload)
-
 		return unwrapList<Conversation>(payload, "conversations")
 	},
 
@@ -20,9 +17,6 @@ export const conversationsApi = {
 		const query = after ? `?after=${encodeURIComponent(after)}` : ""
 
 		const payload = await request<unknown>(`/conversations/${id}/messages${query}`, { signal })
-
-		console.log("payload messages", payload)
-
 		return unwrapList<Message>(payload, "messages")
 	},
 

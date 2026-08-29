@@ -161,6 +161,8 @@ export function ChatPanel({ conversation, onConversationChange }: Props) {
 		try {
 			const saved = await api.sendMessage(conversationId, text, clientMessageId)
 			setMessages((current) => mergeMessages(current, [{ ...optimistic, ...saved, optimistic: false }]))
+
+			console.log("saved", saved)
 		} catch (error) {
 			setMessages((current) =>
 				current.map((message) =>
@@ -200,8 +202,6 @@ export function ChatPanel({ conversation, onConversationChange }: Props) {
 
 	let lastDay = ""
 
-	console.log("conversation" , conversation)
-
 	return (
 		<div className="flex h-full flex-col overflow-hidden">
 			<header className="flex flex-wrap items-center gap-3 border-b border-ink-200 p-3 dark:border-ink-700 flex-shrink-0">
@@ -232,7 +232,7 @@ export function ChatPanel({ conversation, onConversationChange }: Props) {
 
 			<div
 				ref={scrollRef}
-				className="flex-1 overflow-y-auto px-3 py-4 sm:px-6"
+				className="h-[650px] overflow-y-auto px-3 py-4 sm:px-6"
 			>
 				{loading ? (
 					<div className="flex flex-col gap-3">
@@ -248,8 +248,6 @@ export function ChatPanel({ conversation, onConversationChange }: Props) {
 					messages.map((message) => {
 						const outbound = message.direction === "outbound"
 						const StatusIcon = statusIcon(message.status)
-						console.log("message sttaus",message.status )
-						console.log("message ",message )
 						const agentKey = message.source === "agent" ? agentKeyOf(message) : null
 						const fromMe =
 							agentKey !== null && (agentKey === agent?.id || agentKey === agent?.name || agentKey === agent?.email)

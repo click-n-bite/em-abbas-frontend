@@ -100,11 +100,6 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 	return payload as T
 }
 
-/**
- * The live EMA API wraps most payloads in an envelope, e.g. `{ data: [...] }`
- * or `{ data: { users: [...] } }`. This tries every shape we've seen rather
- * than assuming one, so it keeps working even if the wrapping changes.
- */
 export function unwrapList<T>(payload: unknown, key: string): T[] {
 	if (Array.isArray(payload)) return payload as T[]
 
