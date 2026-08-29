@@ -1,0 +1,12 @@
+{
+  "notifyPhones": [
+    {
+      "id": "55a9f9aa-c9d3-4781-a6aa-dff9da8acad4",
+      "phone": "+966511111111",
+      "country": "SA",
+      "label": "souzan",
+      "createdAt": "2026-08-29T07:36:15.045Z",
+      "createdBy": "superadmin"
+    }
+  ]
+}
