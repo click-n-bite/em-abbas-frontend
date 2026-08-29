@@ -42,6 +42,37 @@ export interface RequestOptions {
 
 export const LOCAL = { baseUrl: "", auth: true } as const
 
+let refreshing: Promise<string | null> | null = null
+
+async function tryRefresh(): Promise<string | null> {
+	const rt = readRefreshToken()
+
+	if (!rt) return null
+
+	try {
+		const res = await fetch(`${API_URL}/api/auth/refresh`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ refreshToken: rt })
+		})
+
+		if (!res.ok) return null
+
+		const data = await res.json()
+		const { accessToken, refreshToken } = data?.data ?? data
+
+		if (!accessToken) return null
+
+		window.localStorage.setItem(STORAGE_KEYS.token, accessToken)
+		if (refreshToken) window.localStorage.setItem(STORAGE_KEYS.refreshToken, refreshToken)
+		window.dispatchEvent(new CustomEvent("ema:token-refreshed", { detail: accessToken }))
+
+		return accessToken
+	} catch {
+		return null
+	}
+}
+
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
 	const { method = "GET", body, auth = true, baseUrl = API_URL, signal } = options
 
@@ -55,20 +86,48 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 		if (token) headers.Authorization = `Bearer ${token}`
 	}
 
-	let response: Response
-
-	try {
-		response = await fetch(`${baseUrl}${path}`, {
+	const doFetch = () =>
+		fetch(`${baseUrl}${path}`, {
 			method,
 			headers,
 			body: body === undefined ? undefined : JSON.stringify(body),
 			cache: "no-store",
 			signal
 		})
+
+	let response: Response
+
+	try {
+		response = await doFetch()
 	} catch (error) {
 		if ((error as Error)?.name === "AbortError") throw error
 
 		throw new ApiError(0, "NETWORK_ERROR", "errors.network")
+	}
+
+
+	if (response.status === 401 && auth && !path.startsWith("/api/auth/refresh")) {
+		refreshing ??= tryRefresh().finally(() => {
+			refreshing = null
+		})
+
+		const newToken = await refreshing
+
+		if (newToken) {
+			headers.Authorization = `Bearer ${newToken}`
+
+			try {
+				response = await doFetch()
+			} catch (error) {
+				if ((error as Error)?.name === "AbortError") throw error
+
+				throw new ApiError(0, "NETWORK_ERROR", "errors.network")
+			}
+		} else {
+			clearSession()
+			window.dispatchEvent(new Event("ema:session-expired"))
+			throw new ApiError(401, "SESSION_EXPIRED", "errors.unauthorized")
+		}
 	}
 
 	if (response.status === 204) return undefined as T
@@ -92,7 +151,10 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
 		const message = record.message ?? response.statusText
 
-		if (response.status === 401 && auth) clearSession()
+		if (response.status === 401 && auth) {
+			clearSession()
+			window.dispatchEvent(new Event("ema:session-expired"))
+		}
 
 		throw new ApiError(response.status, String(code), String(message))
 	}

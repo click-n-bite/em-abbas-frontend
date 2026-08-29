@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
 	AlertCircle,
 	Bot,
@@ -23,8 +23,8 @@ import { Avatar } from "@/components/ui/avatar"
 import { ModeBadge } from "@/components/ui/badges"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Spinner } from "@/components/ui/spinner"
-import type { Conversation, Message } from "@/lib/types"
-import type { ConnectionState } from "@/hooks/use-realtime"
+import { useRealtime, type ConnectionState } from "@/hooks/use-realtime"
+import type { Conversation, Message, RealtimeEvent } from "@/lib/types"
 
 interface Props {
 	conversation: Conversation | null
@@ -121,6 +121,50 @@ export function ChatPanel({ conversation, onConversationChange }: Props) {
 		return () => controller.abort()
 	}, [conversationId, scrollToEnd])
 
+
+	const onConversationChangeRef = useRef(onConversationChange)
+	onConversationChangeRef.current = onConversationChange
+
+	const conversationRef = useRef(conversation)
+	conversationRef.current = conversation
+
+	const onRealtimeEvent = useCallback((payload: unknown) => {
+		const event = payload as RealtimeEvent | null
+		const current = conversationRef.current
+
+		if (!event || typeof event.event !== "string" || !current) return
+
+		if (event.event === "message.created") {
+			if (event.conversationId !== current.id) return
+
+			setMessages((prev) => mergeMessages(prev, [event as unknown as Message]))
+			window.setTimeout(() => scrollToEnd(), 20)
+
+			return
+		}
+
+		if (event.event === "conversation.assigned") {
+			if (event.conversationId !== current.id) return
+
+			onConversationChangeRef.current({
+				...current,
+				mode: (event.mode as Conversation["mode"]) ?? current.mode,
+				assigneeId: (event.assigneeId as string | null | undefined) ?? null
+			})
+		}
+	}, [scrollToEnd])
+
+	const socketTopics = useMemo(
+		() => (conversationId ? [`/topic/conversation/${conversationId}`] : []),
+		[conversationId]
+	)
+
+	const connectionState: ConnectionState = useRealtime({
+		topics: socketTopics,
+		onEvent: onRealtimeEvent,
+		enabled: Boolean(conversationId)
+	})
+
 	const mine = Boolean(conversation?.assigneeId && conversation.assigneeId === agent?.id)
 	const canReply = conversation?.mode === "agent" && mine
 
@@ -135,9 +179,11 @@ export function ChatPanel({ conversation, onConversationChange }: Props) {
 
 	const send = async () => {
 		const text = draft.trim()
-		if (!conversationId || !text || sending) return
+		if (!conversationId || !text || sending || !conversation) return
 
 		const clientMessageId = uuid()
+
+		const sentAt = new Date().toISOString()
 
 		const optimistic: Message = {
 			id: `local-${clientMessageId}`,
@@ -149,7 +195,7 @@ export function ChatPanel({ conversation, onConversationChange }: Props) {
 			status: "pending",
 			wamid: null,
 			clientMessageId,
-			createdAt: new Date().toISOString(),
+			createdAt: sentAt,
 			optimistic: true
 		}
 
@@ -158,11 +204,15 @@ export function ChatPanel({ conversation, onConversationChange }: Props) {
 		setSending(true)
 		window.setTimeout(() => scrollToEnd(), 20)
 
+		onConversationChangeRef.current({
+			...conversation,
+			preview: text,
+			lastMessageAt: sentAt
+		})
+
 		try {
 			const saved = await api.sendMessage(conversationId, text, clientMessageId)
 			setMessages((current) => mergeMessages(current, [{ ...optimistic, ...saved, optimistic: false }]))
-
-			console.log("saved", saved)
 		} catch (error) {
 			setMessages((current) =>
 				current.map((message) =>
@@ -207,7 +257,7 @@ export function ChatPanel({ conversation, onConversationChange }: Props) {
 			<header className="flex flex-wrap items-center gap-3 border-b border-ink-200 p-3 dark:border-ink-700 flex-shrink-0">
 				<Avatar name={conversation.customerName} seed={conversation.phone} />
 				<div className="min-w-0 flex-1">
-					<p className="truncate text-sm font-semibold text-ink-900 dark:text-ink-50">
+					<p dir="auto" className="truncate text-sm font-semibold text-ink-900 dark:text-ink-50">
 						{conversation.customerName?.trim() || conversation.phone}
 					</p>
 					<p className="truncate text-xs text-ink-500 dark:text-ink-400" dir="ltr">
@@ -216,6 +266,16 @@ export function ChatPanel({ conversation, onConversationChange }: Props) {
 				</div>
 
 				<ModeBadge mode={conversation.mode} />
+
+				{connectionState !== "connected" ? (
+					<span
+						className="flex items-center gap-1 text-[11px] text-ink-400"
+						title={t(connectionState === "connecting" ? "chat.reconnecting" : "chat.offline")}
+					>
+						<span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true" />
+						{t(connectionState === "connecting" ? "chat.reconnecting" : "chat.offline")}
+					</span>
+				) : null}
 
 				{conversation.mode === "agent" && mine ? (
 					<button type="button" className="btn-secondary" onClick={() => changeMode("handoff")} disabled={modeBusy}>

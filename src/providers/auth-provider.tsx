@@ -18,6 +18,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+
+
 function isExpired(session: SessionAgent | null): boolean {
 	return Boolean(session?.expiresAt) && Date.now() >= (session?.expiresAt ?? 0)
 }
@@ -30,6 +32,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const [token, setToken] = useState<string | null>(null)
 
 	const [ready, setReady] = useState(false)
+
+	useEffect(() => {
+		const onExpired = () => { clearSession(); setToken(null); setAgent(null); router.replace("/login") }
+		const onRefreshed = (e: Event) => setToken((e as CustomEvent).detail)
+		window.addEventListener("ema:session-expired", onExpired)
+		window.addEventListener("ema:token-refreshed", onRefreshed)
+		return () => {
+			window.removeEventListener("ema:session-expired", onExpired)
+			window.removeEventListener("ema:token-refreshed", onRefreshed)
+		}
+	}, [router])
 
 	useEffect(() => {
 		try {

@@ -19,7 +19,6 @@ export type { NotifyPhonePayload } from "./features/notify-phones/types"
 
 export type { BlockCountryPayload } from "./features/blacklist/types"
 
-/** Endpoints on the deployed EMA backend. */
 export const api = {
 	login: authApi.login,
 	conversations: conversationsApi.list,
@@ -32,7 +31,6 @@ export const api = {
 	markNotificationRead: notificationsApi.markRead
 }
 
-/** User & country-block management on the real EMA backend (/api/admin/**). */
 export const adminApi = {
 	listUsers: usersApi.list,
 	createUser: usersApi.create,
