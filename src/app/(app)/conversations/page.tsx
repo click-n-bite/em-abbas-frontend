@@ -54,7 +54,6 @@ export default function ConversationsPage() {
 
 	const [failure, setFailure] = useState<string | null>(null)
 
-	const [incoming, setIncoming] = useState<Message[]>([])
 
 	const inFlight = useRef(false)
 
@@ -99,65 +98,6 @@ export default function ConversationsPage() {
 		router.replace(search ? `/conversations?${search}` : "/conversations", { scroll: false })
 	}, [activeId, filter, router])
 
-	const topics = useMemo(() => (agent ? ["/topic/inbox", `/topic/agent/${agent.id}`] : []), [agent])
-
-	const connection = useRealtime({
-		topics,
-		enabled: Boolean(agent),
-		onEvent: (raw) => {
-			if (!raw || typeof raw !== "object") return
-
-			const payload = raw as Record<string, unknown>
-
-			if (payload.event === "message.created" && payload.message) {
-				const message = payload.message as Message
-
-				setIncoming((current) => [...current.slice(-80), message])
-				setConversations((current) =>
-					sortByRecent(
-						current.map((conversation) =>
-							conversation.id === message.conversationId
-								? {
-										...conversation,
-										preview: message.text ?? conversation.preview,
-										lastMessageAt: message.createdAt
-									}
-								: conversation
-						)
-					)
-				)
-
-				return
-			}
-
-			if (
-				payload.event === "conversation.upserted" ||
-				payload.event === "conversation.assigned" ||
-				payload.event === "handoff.requested"
-			) {
-				const next = (payload.conversation ?? null) as Conversation | null
-
-				if (next?.id) {
-					setConversations((current) => {
-						const exists = current.some((conversation) => conversation.id === next.id)
-
-						return sortByRecent(
-							exists
-								? current.map((conversation) =>
-										conversation.id === next.id ? { ...conversation, ...next } : conversation
-									)
-								: [next, ...current]
-						)
-					})
-				} else {
-					void load(true)
-				}
-			}
-		}
-	})
-
-	// Polling is the safety net whenever the socket is not connected.
-	usePoll(() => void load(true), 15_000, connection !== "connected")
 
 	const filtered = useMemo(() => {
 		const needle = search.trim().toLowerCase()
@@ -176,7 +116,6 @@ export default function ConversationsPage() {
 		[conversations, activeId]
 	)
 
-	// Deep-linked conversation that the current filter does not include.
 	const [detached, setDetached] = useState<Conversation | null>(null)
 
 	useEffect(() => {
@@ -231,7 +170,7 @@ export default function ConversationsPage() {
 				</button>
 			}>
 			<div className='grid h-full min-h-0 gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]'>
-				<div className={cn("card min-h-0 overflow-hidden", selected ? "hidden lg:block" : "block")}>
+				<div className={cn("card min-h-0 overflow-hidden", selected ? " lg:block" : "block")}>
 					<ConversationList
 						conversations={filtered}
 						activeId={activeId}
@@ -247,11 +186,9 @@ export default function ConversationsPage() {
 					/>
 				</div>
 
-				<div className={cn("card min-h-0 overflow-hidden", selected ? "block" : "hidden lg:block")}>
+				<div className={cn("card min-h-0 overflow-hidden", selected ? "block" : " lg:block")}>
 					<ChatPanel
 						conversation={selected}
-						incoming={incoming}
-						connection={connection}
 						onConversationChange={onConversationChange}
 					/>
 				</div>
