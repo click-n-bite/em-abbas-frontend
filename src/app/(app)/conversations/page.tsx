@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -5,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { RefreshCw } from "lucide-react"
 import { api } from "@/lib/api"
 import { errorKey } from "@/lib/errors"
-import { usePoll } from "@/hooks/use-poll"
 import { useRealtime } from "@/hooks/use-realtime"
 import { useAuth } from "@/providers/auth-provider"
 import { useI18n } from "@/providers/i18n-provider"
@@ -13,9 +13,10 @@ import { AppShell } from "@/components/layout/app-shell"
 import { ChatPanel } from "@/components/chat/chat-panel"
 import { ConversationList, type InboxFilter } from "@/components/chat/conversation-list"
 import { cn } from "@/lib/utils"
-import type { Conversation, Message } from "@/lib/types"
+import { playNotificationSound } from "@/lib/sound"
+import type { Conversation, Message, RealtimeEvent } from "@/lib/types"
 
-const FILTERS: InboxFilter[] = ["all", "waiting", "bot", "mine"]
+const FILTERS: InboxFilter[] = ["all", "bot", "mine"]
 
 function sortByRecent(list: Conversation[]): Conversation[] {
 	return [...list].sort((a, b) => {
@@ -25,6 +26,20 @@ function sortByRecent(list: Conversation[]): Conversation[] {
 
 		return right.localeCompare(left)
 	})
+}
+
+/** Rows in `conversations` state only ever hold one filter's worth of data
+ *  (it's re-fetched per filter switch), so a live upsert for a brand-new
+ *  conversation must be checked against the active filter before insertion —
+ *  otherwise switching to "Mine" could suddenly show someone else's chat. */
+function matchesFilter(conversation: Partial<Conversation>, filter: InboxFilter, agentId: string | null): boolean {
+	if (filter === "all") return true
+
+	if (filter === "bot") return conversation.mode === "bot"
+
+	if (filter === "mine") return conversation.mode === "agent" && conversation.assigneeId === agentId
+
+	return false
 }
 
 export default function ConversationsPage() {
@@ -53,7 +68,6 @@ export default function ConversationsPage() {
 	const [loading, setLoading] = useState(true)
 
 	const [failure, setFailure] = useState<string | null>(null)
-
 
 	const inFlight = useRef(false)
 
@@ -87,6 +101,16 @@ export default function ConversationsPage() {
 	}, [requestedId])
 
 	useEffect(() => {
+		if (!activeId) return
+
+		setConversations((current) =>
+			current.map((conversation) =>
+				conversation.id === activeId && conversation.unreadCount ? { ...conversation, unreadCount: 0 } : conversation
+			)
+		)
+	}, [activeId])
+
+	useEffect(() => {
 		const query = new URLSearchParams()
 
 		if (activeId) query.set("id", activeId)
@@ -97,7 +121,6 @@ export default function ConversationsPage() {
 
 		router.replace(search ? `/conversations?${search}` : "/conversations", { scroll: false })
 	}, [activeId, filter, router])
-
 
 	const filtered = useMemo(() => {
 		const needle = search.trim().toLowerCase()
@@ -154,6 +177,133 @@ export default function ConversationsPage() {
 		setDetached((current) => (current && current.id === next.id ? { ...current, ...next } : current))
 	}, [])
 
+	const activeIdRef = useRef(activeId)
+
+	activeIdRef.current = activeId
+
+	const filterRef = useRef(filter)
+
+	filterRef.current = filter
+
+	const agentIdRef = useRef<string | null>(agent?.id ?? null)
+
+	agentIdRef.current = agent?.id ?? null
+
+	const upsert = useCallback((partial: Partial<Conversation> & { id: string }) => {
+		if (partial.lastMessageDirection === "inbound" && partial.id !== activeIdRef.current) {
+			playNotificationSound()
+		}
+
+		setConversations((current) => {
+			const idx = current.findIndex((conversation) => conversation.id === partial.id)
+
+			if (idx === -1) {
+				if (!matchesFilter(partial, filterRef.current, agentIdRef.current)) return current
+
+				const created = { unreadCount: 0, ...partial } as Conversation
+
+				if (created.id === activeIdRef.current) created.unreadCount = 0
+
+				return sortByRecent([created, ...current])
+			}
+
+			const existing = current[idx]
+
+			const merged: Conversation = { ...existing, ...partial }
+
+			if (
+				partial.lastMessageDirection === "inbound" &&
+				partial.id !== activeIdRef.current &&
+				partial.unreadCount === undefined
+			) {
+				merged.unreadCount = (existing.unreadCount ?? 0) + 1
+			}
+
+			if (partial.id === activeIdRef.current) merged.unreadCount = 0
+
+			const next = [...current]
+
+			next[idx] = merged
+
+			return sortByRecent(next)
+		})
+
+		setDetached((current) => (current && current.id === partial.id ? { ...current, ...partial } : current))
+	}, [])
+
+	const onRealtimeEvent = useCallback(
+		(payload: unknown) => {
+			const event = payload as RealtimeEvent | null
+
+			if (!event || typeof event.event !== "string") return
+
+			switch (event.event) {
+				case "conversation.upserted": {
+					const { event: _ignored, ...rest } = event
+
+					upsert(rest as Partial<Conversation> & { id: string })
+
+					break
+				}
+
+				case "handoff.requested": {
+					const conversationId = event.conversationId as string | undefined
+
+					if (!conversationId) break
+
+					upsert({
+						id: conversationId,
+						mode: (event.mode as Conversation["mode"]) ?? "bot",
+						preview: (event.preview as string | null | undefined) ?? undefined,
+						handoffRequested: true
+					})
+
+					break
+				}
+
+				case "conversation.assigned": {
+					const conversationId = event.conversationId as string | undefined
+
+					if (!conversationId) break
+
+					upsert({
+						id: conversationId,
+						mode: (event.mode as Conversation["mode"]) ?? "agent",
+						assigneeId: (event.assigneeId as string | null | undefined) ?? null
+					})
+
+					break
+				}
+
+				case "conversation.read": {
+					const conversationId = event.conversationId as string | undefined
+
+					if (!conversationId) break
+
+					upsert({
+						id: conversationId,
+						unreadCount: (event.unreadCount as number | undefined) ?? 0,
+						lastReadAt: (event.lastReadAt as string | undefined) ?? null
+					})
+
+					break
+				}
+
+				default:
+					break
+			}
+		},
+		[upsert]
+	)
+
+	const socketTopics = useMemo(() => {
+		if (!agent?.id) return []
+
+		return ["/topic/inbox", `/topic/agent/${agent.id}`]
+	}, [agent?.id])
+
+	useRealtime({ topics: socketTopics, onEvent: onRealtimeEvent, enabled: Boolean(agent) })
+
 	return (
 		<AppShell
 			flush
@@ -170,7 +320,7 @@ export default function ConversationsPage() {
 				</button>
 			}>
 			<div className='grid h-full min-h-0 gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]'>
-				<div className={cn("card min-h-0 overflow-hidden", selected ? " lg:block" : "block")}>
+				<div className={cn("card min-h-0 overflow-hidden", selected ? "hidden lg:block" : "block")}>
 					<ConversationList
 						conversations={filtered}
 						activeId={activeId}
@@ -186,10 +336,11 @@ export default function ConversationsPage() {
 					/>
 				</div>
 
-				<div className={cn("card min-h-0 overflow-hidden", selected ? "block" : " lg:block")}>
+				<div className={cn("card min-h-0 overflow-hidden", selected ? "block" : "hidden lg:block")}>
 					<ChatPanel
 						conversation={selected}
 						onConversationChange={onConversationChange}
+						onBack={() => setActiveId(null)}
 					/>
 				</div>
 			</div>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { BellRing, Plus, RefreshCw, ShieldAlert, Trash2 } from "lucide-react"
+import { BellRing, Pencil, Phone, Plus, RefreshCw, ShieldAlert, Trash2, X } from "lucide-react"
 import { adminApi } from "@/lib/api"
 import { errorDetail, errorKey } from "@/lib/errors"
 import { useAuth } from "@/providers/auth-provider"
@@ -12,14 +12,19 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { Spinner } from "@/components/ui/spinner"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { PhoneInput } from "@/components/phone-input"
-import { countryName, flagOf, parsePhone, type CountryCode } from "@/lib/countries"
+import { parsePhone, type CountryCode } from "@/lib/countries"
 import { cn } from "@/lib/utils"
 import type { NotifyPhone } from "@/lib/types"
 
-export default function NotifyPhonesPage() {
-	const { t, locale, formatDateTime } = useI18n()
+/** Digits only, matching how the backend stores `phoneNumber` (no leading "+"). */
+function digitsOnly(value: string): string {
+	return value.replace(/\D/g, "")
+}
 
-	const { agent, role, canManageUsers } = useAuth()
+export default function NotifyPhonesPage() {
+	const { t, formatDateTime } = useI18n()
+
+	const { role, canManageUsers } = useAuth()
 
 	const { push } = useToast()
 
@@ -33,11 +38,19 @@ export default function NotifyPhonesPage() {
 
 	const [national, setNational] = useState("")
 
-	const [label, setLabel] = useState("")
+	const [name, setName] = useState("")
 
 	const [busy, setBusy] = useState(false)
 
 	const [pendingRemove, setPendingRemove] = useState<NotifyPhone | null>(null)
+
+	const [editing, setEditing] = useState<NotifyPhone | null>(null)
+
+	const [editName, setEditName] = useState("")
+
+	const [editBusy, setEditBusy] = useState(false)
+
+	const [toggling, setToggling] = useState<number | null>(null)
 
 	const load = useCallback(async () => {
 		try {
@@ -58,12 +71,14 @@ export default function NotifyPhonesPage() {
 
 	const parsed = useMemo(() => (country ? parsePhone(national, country) : null), [country, national])
 
-	const ready = Boolean(parsed?.valid && parsed.e164)
+	const ready = Boolean(parsed?.valid && parsed.e164 && name.trim())
 
 	const add = async () => {
 		if (!ready || !parsed?.e164 || busy) return
 
-		if (entries.some((entry) => entry.phone === parsed.e164)) {
+		const phoneDigits = digitsOnly(parsed.e164)
+
+		if (entries.some((entry) => entry.phoneNumber === phoneDigits)) {
 			push(t("notifyPhones.duplicate"), "error")
 
 			return
@@ -73,15 +88,14 @@ export default function NotifyPhonesPage() {
 
 		try {
 			const entry = await adminApi.addNotifyPhone({
-				phone: parsed.e164,
-				country: parsed.country ?? country ?? null,
-				label: label.trim() || null,
-				createdBy: agent?.email ?? null
+				name: name.trim(),
+				phoneNumber: parsed.e164,
+				notificationsEnabled: true
 			})
 
 			setEntries((current) => [entry, ...current])
 			setNational("")
-			setLabel("")
+			setName("")
 			push(t("notifyPhones.added"), "success")
 		} catch (error) {
 			push(errorDetail(error) ?? t(errorKey(error)), "error")
@@ -97,6 +111,50 @@ export default function NotifyPhonesPage() {
 			push(t("notifyPhones.deleted"), "success")
 		} catch (error) {
 			push(errorDetail(error) ?? t(errorKey(error)), "error")
+		}
+	}
+
+	const toggleEnabled = async (entry: NotifyPhone) => {
+		setToggling(entry.id)
+
+		const next = !entry.notificationsEnabled
+
+		setEntries((current) =>
+			current.map((item) => (item.id === entry.id ? { ...item, notificationsEnabled: next } : item))
+		)
+
+		try {
+			const updated = await adminApi.updateNotifyPhone(entry.id, { notificationsEnabled: next })
+
+			setEntries((current) => current.map((item) => (item.id === entry.id ? updated : item)))
+		} catch (error) {
+			setEntries((current) => current.map((item) => (item.id === entry.id ? entry : item)))
+			push(errorDetail(error) ?? t(errorKey(error)), "error")
+		} finally {
+			setToggling(null)
+		}
+	}
+
+	const startEdit = (entry: NotifyPhone) => {
+		setEditing(entry)
+		setEditName(entry.name)
+	}
+
+	const saveEdit = async () => {
+		if (!editing || !editName.trim() || editBusy) return
+
+		setEditBusy(true)
+
+		try {
+			const updated = await adminApi.updateNotifyPhone(editing.id, { name: editName.trim() })
+
+			setEntries((current) => current.map((item) => (item.id === editing.id ? updated : item)))
+			setEditing(null)
+			push(t("notifyPhones.updated"), "success")
+		} catch (error) {
+			push(errorDetail(error) ?? t(errorKey(error)), "error")
+		} finally {
+			setEditBusy(false)
 		}
 	}
 
@@ -152,22 +210,56 @@ export default function NotifyPhonesPage() {
 						<ul className='divide-y divide-ink-100 dark:divide-ink-700/70'>
 							{entries.map((entry) => (
 								<li key={entry.id} className='flex animate-fade-in items-center gap-3 px-5 py-3.5'>
-									<span className='text-xl' aria-hidden='true'>
-										{entry.country ? flagOf(entry.country) : "📱"}
+									<span
+										className='flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300'
+										aria-hidden='true'>
+										<Phone className='h-4 w-4' />
 									</span>
 									<div className='min-w-0 flex-1'>
 										<p className='truncate text-sm font-medium text-ink-900 dark:text-ink-50'>
-											<span dir='ltr'>{entry.phone}</span>
-											{entry.label ? (
-												<span className='ms-2 font-normal text-ink-500 dark:text-ink-400'>{entry.label}</span>
+											{entry.name}
+											{!entry.notificationsEnabled ? (
+												<span className='ms-2 rounded-full bg-ink-100 px-1.5 py-0.5 text-[10px] font-normal text-ink-500 dark:bg-ink-700 dark:text-ink-300'>
+													{t("common.disabled")}
+												</span>
 											) : null}
 										</p>
 										<p className='truncate text-xs text-ink-500 dark:text-ink-400'>
-											{entry.country ? `${countryName(entry.country, locale)} · ` : ""}
+											<span dir='ltr'>+{entry.phoneNumber}</span>
+											{" · "}
 											{t("notifyPhones.addedAt")} {formatDateTime(entry.createdAt)}
-											{entry.createdBy ? ` · ${t("notifyPhones.by")} ${entry.createdBy}` : ""}
 										</p>
 									</div>
+
+									<label className='inline-flex shrink-0 cursor-pointer items-center gap-2'>
+										<span className='sr-only'>{t("notifyPhones.notificationsEnabled")}</span>
+										<span
+											onClick={() => !toggling && void toggleEnabled(entry)}
+											className={cn(
+												"relative h-5 w-9 shrink-0 rounded-full transition",
+												entry.notificationsEnabled ? "bg-brand-600" : "bg-ink-300 dark:bg-ink-600",
+												toggling === entry.id && "opacity-60"
+											)}
+											role='switch'
+											aria-checked={entry.notificationsEnabled}>
+											<span
+												className={cn(
+													"absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform",
+													entry.notificationsEnabled ? "translate-x-4 rtl:-translate-x-4" : "translate-x-0.5"
+												)}
+											/>
+										</span>
+									</label>
+
+									<button
+										type='button'
+										className='btn-ghost shrink-0'
+										onClick={() => startEdit(entry)}
+										aria-label={t("common.edit")}
+										title={t("common.edit")}>
+										<Pencil className='h-4 w-4' aria-hidden='true' />
+									</button>
+
 									<button
 										type='button'
 										className='btn-ghost shrink-0 text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950'
@@ -190,6 +282,20 @@ export default function NotifyPhonesPage() {
 							event.preventDefault()
 							void add()
 						}}>
+						<div>
+							<label className='label' htmlFor='notify-name'>
+								{t("notifyPhones.name")}
+							</label>
+							<input
+								id='notify-name'
+								className='input'
+								value={name}
+								onChange={(event) => setName(event.target.value)}
+								placeholder={t("notifyPhones.namePlaceholder")}
+								required
+							/>
+						</div>
+
 						<PhoneInput
 							label={t("notifyPhones.phone")}
 							required
@@ -199,20 +305,6 @@ export default function NotifyPhonesPage() {
 							onNationalChange={setNational}
 						/>
 
-						<div>
-							<label className='label' htmlFor='notify-label'>
-								{t("notifyPhones.label")}{" "}
-								<span className='font-normal lowercase tracking-normal'>({t("common.optional")})</span>
-							</label>
-							<input
-								id='notify-label'
-								className='input'
-								value={label}
-								onChange={(event) => setLabel(event.target.value)}
-								placeholder={t("notifyPhones.labelPlaceholder")}
-							/>
-						</div>
-
 						<button type='submit' className='btn-primary w-full justify-center' disabled={busy || !ready}>
 							{busy ? <Spinner /> : <Plus className='h-4 w-4' aria-hidden='true' />}
 							{busy ? t("notifyPhones.adding") : t("notifyPhones.add")}
@@ -221,10 +313,52 @@ export default function NotifyPhonesPage() {
 				</section>
 			</div>
 
+			{editing ? (
+				<div
+					className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'
+					role='dialog'
+					aria-modal='true'>
+					<div className='w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl dark:bg-ink-800'>
+						<div className='mb-4 flex items-center justify-between'>
+							<h3 className='text-sm font-semibold text-ink-900 dark:text-ink-50'>{t("notifyPhones.editTitle")}</h3>
+							<button type='button' className='btn-ghost h-8 w-8 justify-center p-0' onClick={() => setEditing(null)}>
+								<X className='h-4 w-4' aria-hidden='true' />
+							</button>
+						</div>
+						<label className='label' htmlFor='notify-edit-name'>
+							{t("notifyPhones.name")}
+						</label>
+						<input
+							id='notify-edit-name'
+							className='input'
+							value={editName}
+							onChange={(event) => setEditName(event.target.value)}
+							autoFocus
+						/>
+						<p className='mt-2 text-xs text-ink-500 dark:text-ink-400' dir='ltr'>
+							+{editing.phoneNumber}
+						</p>
+						<div className='mt-5 flex justify-end gap-2'>
+							<button type='button' className='btn-secondary' onClick={() => setEditing(null)}>
+								{t("common.cancel")}
+							</button>
+							<button
+								type='button'
+								className='btn-primary'
+								onClick={() => void saveEdit()}
+								disabled={editBusy || !editName.trim()}>
+								{editBusy ? <Spinner /> : null}
+								{t("common.save")}
+							</button>
+						</div>
+					</div>
+				</div>
+			) : null}
+
 			<ConfirmDialog
 				open={pendingRemove !== null}
 				title={t("notifyPhones.deleteTitle")}
-				body={pendingRemove ? t("notifyPhones.deleteBody", { phone: pendingRemove.phone }) : undefined}
+				body={pendingRemove ? t("notifyPhones.deleteBody", { phone: `+${pendingRemove.phoneNumber}` }) : undefined}
 				confirmLabel={t("common.delete")}
 				onConfirm={async () => {
 					if (pendingRemove) await remove(pendingRemove)

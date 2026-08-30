@@ -13,7 +13,24 @@ export interface Conversation {
 	createdAt?: string | null
 	updatedAt?: string | null
 	assignee?: { id: string; name: string; email: string } | null
+	handoffRequested?: boolean
+	lastMessageId?: string | null
+	lastMessageDirection?: "inbound" | "outbound" | null
+	lastMessageSource?: "customer" | "bot" | "agent" | null
+	unreadCount?: number
+	lastReadAt?: string | null
 }
+
+export type MessageType =
+	| "text"
+	| "image"
+	| "video"
+	| "audio"
+	| "document"
+	| "sticker"
+	| "location"
+	| "contacts"
+	| "reaction"
 
 export interface Message {
 	id: string
@@ -22,13 +39,15 @@ export interface Message {
 	source: "customer" | "bot" | "agent"
 	type: string
 	text: string | null
+	mediaId: string | null
+	mediaUrl: string | null
+	mimeType: string | null
+	filename: string | null
 	status: "pending" | "sent" | "delivered" | "read" | "failed"
 	wamid: string | null
 	clientMessageId: string | null
 	createdAt: string
-	/** Set locally for messages that are still being delivered to the API. */
 	optimistic?: boolean
-	/** Agent that sent an outbound message, when the API provides it. */
 	agentId?: string | null
 	agentName?: string | null
 }

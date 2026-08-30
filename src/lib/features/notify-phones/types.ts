@@ -1,18 +1,25 @@
+/** Matches `NotifyWhatsappNumberResponse` from the real EMA backend
+ *  (`/api/admin/notify-whatsapp-numbers`). Phone numbers are stored as
+ *  E.164 digits with no leading `+` (e.g. "96171123456"). */
 export interface NotifyPhone {
-	id: string
-	/** E.164 number, e.g. "+201234567890". */
-	phone: string
-	/** ISO-3166-1 alpha-2 of the number, used to render the flag. */
-	country: string | null
-	label: string | null
+	id: number
+	name: string
+	/** Digits only, no leading "+". Prefix with "+" for display. */
+	phoneNumber: string
+	notificationsEnabled: boolean
 	createdAt: string
-	createdBy: string | null
-	local?: boolean
+	updatedAt: string
 }
 
-export interface NotifyPhonePayload {
-	phone: string
-	country: string | null
-	label: string | null
-	createdBy: string | null
+export interface CreateNotifyPhonePayload {
+	name: string
+	/** May be sent with or without a leading "+"; the API normalizes it. */
+	phoneNumber: string
+	notificationsEnabled?: boolean
+}
+
+export interface UpdateNotifyPhonePayload {
+	name?: string
+	phoneNumber?: string
+	notificationsEnabled?: boolean
 }

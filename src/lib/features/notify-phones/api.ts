@@ -1,27 +1,34 @@
-import { LOCAL, request, unwrapItem, unwrapList } from "@/lib/http"
-import type { NotifyPhone, NotifyPhonePayload } from "./types"
+import { request, unwrapItem, unwrapList } from "@/lib/http"
+import type { CreateNotifyPhonePayload, NotifyPhone, UpdateNotifyPhonePayload } from "./types"
 
+/** WhatsApp notify-recipient numbers on the real EMA backend
+ *  (`/api/admin/notify-whatsapp-numbers`). Envelope response: `{ success, message, data }`. */
 export const notifyPhonesApi = {
 	async list(signal?: AbortSignal): Promise<NotifyPhone[]> {
-		const payload = await request<unknown>("/api/notify-phones", { ...LOCAL, signal })
+		const payload = await request<unknown>("/api/admin/notify-whatsapp-numbers", { signal })
 
-		return unwrapList<NotifyPhone>(payload, "notifyPhones")
+		return unwrapList<NotifyPhone>(payload, "data")
 	},
 
-	async add(payload: NotifyPhonePayload): Promise<NotifyPhone> {
-		const result = await request<unknown>("/api/notify-phones", {
-			...LOCAL,
+	async add(payload: CreateNotifyPhonePayload): Promise<NotifyPhone> {
+		const result = await request<unknown>("/api/admin/notify-whatsapp-numbers", {
 			method: "POST",
 			body: payload
 		})
 
-		return unwrapItem<NotifyPhone>(result, "notifyPhone")
+		return unwrapItem<NotifyPhone>(result, "data")
 	},
 
-	remove(id: string): Promise<void> {
-		return request<void>(`/api/notify-phones/${encodeURIComponent(id)}`, {
-			...LOCAL,
-			method: "DELETE"
+	async update(id: number, payload: UpdateNotifyPhonePayload): Promise<NotifyPhone> {
+		const result = await request<unknown>(`/api/admin/notify-whatsapp-numbers/${id}`, {
+			method: "PATCH",
+			body: payload
 		})
+
+		return unwrapItem<NotifyPhone>(result, "data")
+	},
+
+	remove(id: number): Promise<void> {
+		return request<void>(`/api/admin/notify-whatsapp-numbers/${id}`, { method: "DELETE" })
 	}
 }

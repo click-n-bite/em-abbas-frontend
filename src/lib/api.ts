@@ -15,7 +15,7 @@ export type { LoginResponse } from "./features/auth/types"
 
 export type { UserPayload } from "./features/users/types"
 
-export type { NotifyPhonePayload } from "./features/notify-phones/types"
+export type { CreateNotifyPhonePayload, UpdateNotifyPhonePayload } from "./features/notify-phones/types"
 
 export type { BlockCountryPayload } from "./features/blacklist/types"
 
@@ -24,6 +24,8 @@ export const api = {
 	conversations: conversationsApi.list,
 	conversation: conversationsApi.get,
 	messages: conversationsApi.messages,
+	uploadMedia: conversationsApi.uploadMedia,
+	mediaBlobUrl: conversationsApi.mediaBlobUrl,
 	sendMessage: conversationsApi.sendMessage,
 	takeover: conversationsApi.takeover,
 	handoffToAi: conversationsApi.handoffToAi,
@@ -41,5 +43,6 @@ export const adminApi = {
 	unblockCountry: blacklistApi.unblock,
 	listNotifyPhones: notifyPhonesApi.list,
 	addNotifyPhone: notifyPhonesApi.add,
+	updateNotifyPhone: notifyPhonesApi.update,
 	deleteNotifyPhone: notifyPhonesApi.remove
 }

@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Eye, EyeOff, MessageCircle, ShieldCheck } from "lucide-react"
+import { Eye, EyeOff, MessageCircle } from "lucide-react"
 import { API_URL } from "@/lib/config"
 import { errorDetail, errorKey } from "@/lib/errors"
 import { useAuth } from "@/providers/auth-provider"
@@ -32,7 +32,6 @@ function LoginForm() {
 
 	const next = params.get("next") || "/conversations"
 
-	// Someone who is already signed in never sees this screen.
 	useEffect(() => {
 		if (ready && agent) router.replace(next)
 	}, [ready, agent, router, next])
@@ -131,11 +130,6 @@ function LoginForm() {
 							{busy ? <Spinner /> : null}
 							{t(busy ? "login.submitting" : "login.submit")}
 						</button>
-
-						<p className='flex items-center gap-2 text-xs text-ink-500 dark:text-ink-400'>
-							<ShieldCheck className='h-3.5 w-3.5 shrink-0' aria-hidden='true' />
-							{t("login.demoHint")}
-						</p>
 					</form>
 
 					<p className='mt-4 text-center text-xs text-ink-400 dark:text-ink-500' dir='ltr'>
@@ -147,7 +141,6 @@ function LoginForm() {
 	)
 }
 
-// useSearchParams() needs a Suspense boundary so the shell can still be prerendered.
 export default function LoginPage() {
 	return (
 		<Suspense

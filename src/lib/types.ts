@@ -1,7 +1,13 @@
 export type Locale = "en" | "ar"
 
 export interface RealtimeEvent {
-	event: "message.created" | "conversation.upserted" | "conversation.assigned" | "handoff.requested"
+	event:
+		| "message.created"
+		| "message.status"
+		| "conversation.upserted"
+		| "conversation.assigned"
+		| "conversation.read"
+		| "handoff.requested"
 	[key: string]: unknown
 }
 
@@ -15,4 +21,4 @@ export type { PortalUser, UserPayload } from "./features/users/types"
 
 export type { BlockCountryPayload, BlockedCountry } from "./features/blacklist/types"
 
-export type { NotifyPhone, NotifyPhonePayload } from "./features/notify-phones/types"
+export type { CreateNotifyPhonePayload, NotifyPhone, UpdateNotifyPhonePayload } from "./features/notify-phones/types"

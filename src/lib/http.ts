@@ -59,18 +59,105 @@ async function tryRefresh(): Promise<string | null> {
 		if (!res.ok) return null
 
 		const data = await res.json()
+
 		const { accessToken, refreshToken } = data?.data ?? data
 
 		if (!accessToken) return null
 
 		window.localStorage.setItem(STORAGE_KEYS.token, accessToken)
+
 		if (refreshToken) window.localStorage.setItem(STORAGE_KEYS.refreshToken, refreshToken)
+
 		window.dispatchEvent(new CustomEvent("ema:token-refreshed", { detail: accessToken }))
 
 		return accessToken
 	} catch {
 		return null
 	}
+}
+
+async function authorizedFetch(path: string, init: RequestInit, allowRefresh = true): Promise<Response> {
+	const headers = new Headers(init.headers)
+
+	const token = readToken()
+
+	if (token) headers.set("Authorization", `Bearer ${token}`)
+
+	let response = await fetch(`${API_URL}${path}`, { ...init, headers, cache: "no-store" })
+
+	if (response.status === 401 && allowRefresh && !path.startsWith("/api/auth/refresh")) {
+		refreshing ??= tryRefresh().finally(() => {
+			refreshing = null
+		})
+
+		const newToken = await refreshing
+
+		if (newToken) {
+			headers.set("Authorization", `Bearer ${newToken}`)
+			response = await fetch(`${API_URL}${path}`, { ...init, headers, cache: "no-store" })
+		} else {
+			clearSession()
+			window.dispatchEvent(new Event("ema:session-expired"))
+		}
+	}
+
+	return response
+}
+
+export async function uploadFile<T>(path: string, file: File, signal?: AbortSignal): Promise<T> {
+	const form = new FormData()
+
+	form.append("file", file)
+
+	let response: Response
+
+	try {
+		response = await authorizedFetch(path, { method: "POST", body: form, signal })
+	} catch (error) {
+		if ((error as Error)?.name === "AbortError") throw error
+
+		throw new ApiError(0, "NETWORK_ERROR", "errors.network")
+	}
+
+	const raw = await response.text()
+
+	let payload: unknown = null
+
+	if (raw) {
+		try {
+			payload = JSON.parse(raw)
+		} catch {
+			payload = { message: raw }
+		}
+	}
+
+	if (!response.ok) {
+		const record = (payload ?? {}) as Record<string, unknown>
+
+		const code = record.code ?? record.error ?? `HTTP_${response.status}`
+
+		const message = record.message ?? response.statusText
+
+		throw new ApiError(response.status, String(code), String(message))
+	}
+
+	return unwrapItem<T>(payload, "data")
+}
+
+export async function fetchAuthorizedBlob(path: string, signal?: AbortSignal): Promise<Blob> {
+	let response: Response
+
+	try {
+		response = await authorizedFetch(path, { method: "GET", signal })
+	} catch (error) {
+		if ((error as Error)?.name === "AbortError") throw error
+
+		throw new ApiError(0, "NETWORK_ERROR", "errors.network")
+	}
+
+	if (!response.ok) throw new ApiError(response.status, "MEDIA_FETCH_FAILED", "errors.generic")
+
+	return response.blob()
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -104,7 +191,6 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
 		throw new ApiError(0, "NETWORK_ERROR", "errors.network")
 	}
-
 
 	if (response.status === 401 && auth && !path.startsWith("/api/auth/refresh")) {
 		refreshing ??= tryRefresh().finally(() => {

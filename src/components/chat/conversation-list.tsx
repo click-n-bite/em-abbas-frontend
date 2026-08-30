@@ -9,9 +9,9 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { cn } from "@/lib/utils"
 import type { Conversation } from "@/lib/types"
 
-export type InboxFilter = "all" | "waiting" | "bot" | "mine"
+export type InboxFilter = "all" | "bot" | "mine"
 
-const filters: InboxFilter[] = ["all", "waiting", "bot", "mine"]
+const filters: InboxFilter[] = ["all", "bot", "mine"]
 
 interface Props {
 	conversations: Conversation[]
@@ -91,7 +91,7 @@ export function ConversationList({
 				) : conversations.length === 0 ? (
 					<EmptyState icon={<Inbox className='h-5 w-5' aria-hidden='true' />} title={t("inbox.empty")} />
 				) : (
-					<ul className='divide-y divide-ink-100 dark:divide-ink-700/70'>
+					<ul className='h-[100px] divide-y divide-ink-100 dark:divide-ink-700/70 md:h-full'>
 						{conversations.map((conversation) => {
 							const active = conversation.id === activeId
 
@@ -119,8 +119,17 @@ export function ConversationList({
 													</span>
 												) : null}
 											</span>
-											<span className='mt-0.5 block truncate text-xs text-ink-500 dark:text-ink-400'>
-												{conversation.preview ?? conversation.phone}
+											<span className='mt-0.5 flex items-center justify-between gap-2'>
+												<span className='min-w-0 flex-1 truncate text-xs text-ink-500 dark:text-ink-400'>
+													{conversation.preview ?? conversation.phone}
+												</span>
+												{conversation.unreadCount ? (
+													<span
+														className='flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-semibold leading-none text-white'
+														aria-label={t("inbox.unreadCount", { n: conversation.unreadCount })}>
+														{conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
+													</span>
+												) : null}
 											</span>
 											<span className='mt-1.5 flex items-center gap-2'>
 												<ModeBadge mode={conversation.mode} />
