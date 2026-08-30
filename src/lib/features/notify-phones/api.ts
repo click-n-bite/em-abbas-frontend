@@ -1,8 +1,6 @@
 import { request, unwrapItem, unwrapList } from "@/lib/http"
 import type { CreateNotifyPhonePayload, NotifyPhone, UpdateNotifyPhonePayload } from "./types"
 
-/** WhatsApp notify-recipient numbers on the real EMA backend
- *  (`/api/admin/notify-whatsapp-numbers`). Envelope response: `{ success, message, data }`. */
 export const notifyPhonesApi = {
 	async list(signal?: AbortSignal): Promise<NotifyPhone[]> {
 		const payload = await request<unknown>("/api/admin/notify-whatsapp-numbers", { signal })
