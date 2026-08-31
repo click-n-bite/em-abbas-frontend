@@ -12,12 +12,11 @@ export const authApi = {
 		return unwrapItem<LoginResponse>(payload, "data")
 	},
 	async refresh(refreshToken: string): Promise<LoginResponse> {
-		const payload = await request<unknown>("/api/auth/refresh", {
-			method: "POST",
-			body: { refreshToken },
-			auth: false
-		})
-
-		return unwrapItem<LoginResponse>(payload, "data")
+	  const payload = await request<unknown>("/api/auth/refresh", {
+		method: "POST",
+		body: { refreshToken },
+		auth: false
+	  })
+	  return unwrapItem<LoginResponse>(payload, "data")
 	}
 }

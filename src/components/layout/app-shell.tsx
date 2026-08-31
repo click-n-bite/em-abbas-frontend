@@ -17,7 +17,12 @@ export function AppShell({ title, subtitle, actions, children, flush = false }: 
 	const [menuOpen, setMenuOpen] = useState(false)
 
 	return (
-		<div className={cn("flex bg-ink-50 dark:bg-ink-900", flush ? "h-dvh overflow-hidden" : "min-h-screen")}>
+		<div
+			className={cn(
+				"flex bg-ink-50 dark:bg-ink-900",
+				flush ? "h-dvh overflow-hidden" : "min-h-screen"
+			)}
+		>
 			<Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
 			<div className={cn("flex min-w-0 flex-1 flex-col", flush && "min-h-0")}>
 				<Topbar title={title} subtitle={subtitle} actions={actions} onMenu={() => setMenuOpen(true)} />

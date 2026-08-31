@@ -42,11 +42,17 @@ const config: Config = {
 				"slide-in": {
 					from: { opacity: "0", transform: "translateY(-8px)" },
 					to: { opacity: "1", transform: "translateY(0)" }
+				},
+				"ping-once": {
+					"0%": { transform: "scale(1)", opacity: "1" },
+					"70%": { transform: "scale(1.5)", opacity: "0" },
+					"100%": { transform: "scale(1.5)", opacity: "0" }
 				}
 			},
 			animation: {
 				"fade-in": "fade-in .18s ease-out",
-				"slide-in": "slide-in .2s ease-out"
+				"slide-in": "slide-in .2s ease-out",
+				"ping-once": "ping-once .6s ease-out 1"
 			}
 		}
 	},

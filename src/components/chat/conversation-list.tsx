@@ -99,6 +99,8 @@ export function ConversationList({
 
 							const mine = conversation.assigneeId && conversation.assigneeId === agent?.id
 
+							const unread = conversation.unreadCount ?? 0
+
 							return (
 								<li key={conversation.id}>
 									<button
@@ -112,7 +114,13 @@ export function ConversationList({
 										<Avatar name={conversation.customerName} seed={conversation.phone} />
 										<span className='min-w-0 flex-1'>
 											<span className='flex items-baseline justify-between gap-2'>
-												<span className='truncate text-sm font-medium text-ink-900 dark:text-ink-50'>{name}</span>
+												<span
+													className={cn(
+														"truncate text-sm text-ink-900 dark:text-ink-50",
+														unread > 0 ? "font-semibold" : "font-medium"
+													)}>
+													{name}
+												</span>
 												{conversation.lastMessageAt ? (
 													<span className='shrink-0 text-[11px] text-ink-400'>
 														{formatRelative(conversation.lastMessageAt)}
@@ -120,14 +128,18 @@ export function ConversationList({
 												) : null}
 											</span>
 											<span className='mt-0.5 flex items-center justify-between gap-2'>
-												<span className='min-w-0 flex-1 truncate text-xs text-ink-500 dark:text-ink-400'>
+												<span
+													className={cn(
+														"min-w-0 flex-1 truncate text-xs",
+														unread > 0 ? "font-medium text-ink-800 dark:text-ink-100" : "text-ink-500 dark:text-ink-400"
+													)}>
 													{conversation.preview ?? conversation.phone}
 												</span>
-												{conversation.unreadCount ? (
+												{unread > 0 ? (
 													<span
-														className='flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-semibold leading-none text-white'
-														aria-label={t("inbox.unreadCount", { n: conversation.unreadCount })}>
-														{conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
+														className='flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-semibold tabular-nums text-white'
+														aria-label={t("inbox.unreadCount", { n: unread })}>
+														{unread > 99 ? "99+" : unread}
 													</span>
 												) : null}
 											</span>

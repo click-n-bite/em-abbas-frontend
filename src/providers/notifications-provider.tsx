@@ -5,6 +5,7 @@ import { api } from "@/lib/api"
 import { errorKey } from "@/lib/errors"
 import { usePoll } from "@/hooks/use-poll"
 import { useRealtime } from "@/hooks/use-realtime"
+import { playMessageSound, unlockSoundOnFirstInteraction } from "@/lib/sound"
 import { useAuth } from "./auth-provider"
 import type { AppNotification } from "@/lib/types"
 
@@ -30,6 +31,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }): JS
 	const [failure, setFailure] = useState<string | null>(null)
 
 	const inFlight = useRef<boolean>(false)
+
+	// Arm the "click/keypress unlocks audio" listener once, app-wide, so the
+	// very first realtime ping actually makes a sound instead of being
+	// silently blocked by the browser's autoplay policy.
+	useEffect(() => {
+		unlockSoundOnFirstInteraction()
+	}, [])
 
 	const refresh = useCallback(async (): Promise<void> => {
 		if (!token || inFlight.current) return
@@ -73,6 +81,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }): JS
 
 			if (payload?.event === "handoff.requested" || payload?.event === "conversation.assigned") {
 				void refresh()
+			}
+
+			// New message from a customer, anywhere in the inbox: ping like WhatsApp.
+			if (payload?.event === "handoff.requested") {
+				playMessageSound()
+			} else if (payload?.event === "conversation.upserted" && payload.lastMessageDirection === "inbound") {
+				playMessageSound()
 			}
 		}
 	})

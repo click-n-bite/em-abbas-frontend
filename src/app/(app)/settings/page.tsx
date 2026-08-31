@@ -1,6 +1,7 @@
 "use client"
 
-import { LogOut, Moon, Sun } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Bell, LogOut, Moon, PlayCircle, Sun, Volume2, VolumeX } from "lucide-react"
 import { useAuth } from "@/providers/auth-provider"
 import { useI18n } from "@/providers/i18n-provider"
 import { useTheme } from "@/providers/theme-provider"
@@ -9,6 +10,7 @@ import { Avatar } from "@/components/ui/avatar"
 import { RoleBadge } from "@/components/ui/badges"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { cn } from "@/lib/utils"
+import { isSoundEnabled, playMessageSound, setSoundEnabled } from "@/lib/sound"
 
 export default function SettingsPage() {
 	const { t } = useI18n()
@@ -16,6 +18,29 @@ export default function SettingsPage() {
 	const { agent, role, signOut } = useAuth()
 
 	const { theme, setTheme } = useTheme()
+
+	const [soundOn, setSoundOn] = useState(true)
+
+	const [pinging, setPinging] = useState(false)
+
+	useEffect(() => {
+		setSoundOn(isSoundEnabled())
+	}, [])
+
+	const toggleSound = () => {
+		const next = !soundOn
+
+		setSoundOn(next)
+		setSoundEnabled(next)
+
+		if (next) testSound()
+	}
+
+	const testSound = () => {
+		playMessageSound()
+		setPinging(true)
+		window.setTimeout(() => setPinging(false), 700)
+	}
 
 	const themes: Array<{ value: "light" | "dark"; label: string; icon: typeof Sun }> = [
 		{ value: "light", label: t("settings.light"), icon: Sun },
@@ -89,6 +114,95 @@ export default function SettingsPage() {
 							<LanguageSwitcher />
 							<p className='mt-2 text-xs text-ink-500 dark:text-ink-400'>{t("settings.languageHelp")}</p>
 						</div>
+					</div>
+				</section>
+
+				<section className='card overflow-hidden p-5'>
+					<div className='flex items-center gap-3'>
+						<span className='flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-sm'>
+							<Bell className='h-4 w-4' aria-hidden='true' />
+						</span>
+						<div className='min-w-0'>
+							<h2 className='text-sm font-semibold text-ink-900 dark:text-ink-50'>{t("settings.notifications")}</h2>
+							<p className='text-xs text-ink-500 dark:text-ink-400'>{t("settings.messageSoundHelp")}</p>
+						</div>
+					</div>
+
+					<div
+						className={cn(
+							"mt-4 flex items-center gap-3 rounded-2xl border p-3.5 transition-colors",
+							soundOn
+								? "border-brand-200 bg-brand-50/60 dark:border-brand-900 dark:bg-brand-950/40"
+								: "border-ink-200 dark:border-ink-700"
+						)}>
+						<span
+							className={cn(
+								"flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
+								soundOn
+									? "bg-white text-brand-600 shadow-sm dark:bg-ink-800"
+									: "bg-ink-100 text-ink-400 dark:bg-ink-700"
+							)}>
+							{soundOn ? (
+								<Volume2 className='h-4 w-4' aria-hidden='true' />
+							) : (
+								<VolumeX className='h-4 w-4' aria-hidden='true' />
+							)}
+						</span>
+
+						<div className='min-w-0 flex-1'>
+							<p className='text-sm font-medium text-ink-800 dark:text-ink-100'>{t("settings.messageSound")}</p>
+							<div className='mt-1.5 flex h-3 items-end gap-0.5' aria-hidden='true'>
+								{[0, 1, 2, 3, 4].map((bar) => (
+									<span
+										key={bar}
+										className={cn(
+											"w-1 rounded-full transition-all duration-300",
+											soundOn ? "bg-brand-500 animate-pulse" : "h-1 bg-ink-300 dark:bg-ink-600"
+										)}
+										style={
+											soundOn
+												? {
+														height: `${4 + ((bar * 7) % 12)}px`,
+														animationDelay: `${bar * 120}ms`,
+														animationDuration: "1100ms"
+													}
+												: undefined
+										}
+									/>
+								))}
+							</div>
+						</div>
+
+						<button
+							type='button'
+							onClick={testSound}
+							disabled={!soundOn}
+							aria-label={t("settings.testSound")}
+							title={t("settings.testSound")}
+							className={cn(
+								"btn-ghost h-9 w-9 shrink-0 rounded-full p-0 disabled:cursor-not-allowed disabled:opacity-30",
+								pinging && "text-brand-600"
+							)}>
+							<PlayCircle className={cn("h-4 w-4", pinging && "animate-ping-once")} aria-hidden='true' />
+						</button>
+
+						<button
+							type='button'
+							onClick={toggleSound}
+							role='switch'
+							aria-checked={soundOn}
+							aria-label={t("settings.messageSound")}
+							className={cn(
+								"relative h-6 w-11 shrink-0 rounded-full transition-colors",
+								soundOn ? "bg-brand-600" : "bg-ink-300 dark:bg-ink-600"
+							)}>
+							<span
+								className={cn(
+									"absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+									soundOn ? "translate-x-[1.375rem] rtl:-translate-x-[1.375rem]" : "translate-x-0.5"
+								)}
+							/>
+						</button>
 					</div>
 				</section>
 			</div>

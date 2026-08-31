@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Eye, EyeOff, MessageCircle } from "lucide-react"
+import { Eye, EyeOff, MessageCircle, ShieldCheck } from "lucide-react"
 import { API_URL } from "@/lib/config"
 import { errorDetail, errorKey } from "@/lib/errors"
 import { useAuth } from "@/providers/auth-provider"
@@ -32,6 +32,7 @@ function LoginForm() {
 
 	const next = params.get("next") || "/conversations"
 
+	// Someone who is already signed in never sees this screen.
 	useEffect(() => {
 		if (ready && agent) router.replace(next)
 	}, [ready, agent, router, next])
@@ -121,8 +122,7 @@ function LoginForm() {
 							<div
 								role='alert'
 								className='rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200'>
-								<p>{t(error.key === "errors.generic" ? "login.failed" : error.key)}</p>
-								{error.detail ? <p className='mt-1 text-xs opacity-80'>{error.detail}</p> : null}
+								<p>{error.detail ?? t(error.key)}</p>
 							</div>
 						) : null}
 
@@ -130,6 +130,11 @@ function LoginForm() {
 							{busy ? <Spinner /> : null}
 							{t(busy ? "login.submitting" : "login.submit")}
 						</button>
+
+						<p className='flex items-center gap-2 text-xs text-ink-500 dark:text-ink-400'>
+							<ShieldCheck className='h-3.5 w-3.5 shrink-0' aria-hidden='true' />
+							{t("login.demoHint")}
+						</p>
 					</form>
 
 					<p className='mt-4 text-center text-xs text-ink-400 dark:text-ink-500' dir='ltr'>
@@ -141,6 +146,7 @@ function LoginForm() {
 	)
 }
 
+// useSearchParams() needs a Suspense boundary so the shell can still be prerendered.
 export default function LoginPage() {
 	return (
 		<Suspense

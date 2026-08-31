@@ -32,11 +32,7 @@ const ar: Dictionary = {
 		hoursAgo: "قبل {n} ساعة",
 		daysAgo: "قبل {n} يوم",
 		copy: "نسخ",
-		copied: "تم النسخ",
-		back: "رجوع",
-		enabled: "مفعّل",
-		disabled: "معطّل",
-		name: "الاسم"
+		copied: "تم النسخ"
 	},
 	nav: {
 		conversations: "المحادثات",
@@ -82,8 +78,8 @@ const ar: Dictionary = {
 		selectHint: "اختر محادثة لقراءة الرسائل.",
 		unassigned: "غير مسندة",
 		assignedTo: "مسندة إلى {name}",
-		unreadCount: "{n} غير مقروءة",
-		you: "أنت"
+		you: "أنت",
+		unreadCount: "{n} غير مقروءة"
 	},
 	chat: {
 		takeover: "تولي المحادثة",
@@ -102,7 +98,14 @@ const ar: Dictionary = {
 		otherAgent: "موظف آخر",
 		reconnecting: "جارٍ إعادة الاتصال…",
 		offline: "غير متصل",
+		back: "العودة إلى المحادثات",
 		attach: "إرفاق ملف",
+		recordVoice: "تسجيل رسالة صوتية",
+		recording: "جارٍ التسجيل…",
+		cancelRecording: "التخلص من التسجيل",
+		sendRecording: "إرسال الرسالة الصوتية",
+		micDenied: "تعذّر الوصول إلى الميكروفون. تحقق من إذن المتصفح لهذا الموقع.",
+		recordingUnsupported: "تسجيل الصوت غير مدعوم في هذا المتصفح.",
 		image: "صورة",
 		download: "تنزيل الملف",
 		mediaFailed: "تعذّر تحميل هذا الملف.",
@@ -115,9 +118,9 @@ const ar: Dictionary = {
 		},
 		today: "اليوم",
 		yesterday: "أمس",
-		liveConnected: "متصل",
-		liveConnecting: "جارٍ الاتصال…",
-		liveOffline: "غير متصل — تحديث دوري",
+		connected: "متصل",
+		connecting: "جارٍ الاتصال…",
+		offlinePolling: "غير متصل — تحديث دوري",
 		typingHint: "Enter للإرسال، Shift+Enter لسطر جديد",
 		statusPending: "قيد الإرسال",
 		statusSent: "أُرسلت",
@@ -193,15 +196,18 @@ const ar: Dictionary = {
 	},
 	notifyPhones: {
 		title: "أرقام الإشعارات",
-		subtitle: "أرقام واتساب التي قد تستقبل تنبيهات المناوبة.",
+		subtitle: "أرقام واتساب التي قد تستقبل تنبيهات من المنصة.",
 		listTitle: "الأرقام المسجلة",
 		empty: "لا يوجد رقم إشعارات بعد.",
-		emptyHint: "أضف رقماً لبدء استقبال التنبيهات.",
+		emptyHint: "أضف رقماً لتسجيله لاستقبال التنبيهات.",
 		addTitle: "إضافة رقم",
-		addSubtitle: "يجب أن يكون الرقم قادراً على استقبال رسائل واتساب.",
-		phone: "رقم الهاتف",
+		editTitle: "تعديل الرقم",
 		name: "الاسم",
-		namePlaceholder: "مناوبة ليلية، المشرف…",
+		nameRequired: "الاسم مطلوب.",
+		phone: "رقم الهاتف",
+		notificationsEnabled: "الإشعارات مفعّلة",
+		enabled: "مفعّل",
+		disabled: "معطّل",
 		add: "إضافة الرقم",
 		adding: "جارٍ الإضافة…",
 		added: "تمت إضافة الرقم.",
@@ -209,11 +215,9 @@ const ar: Dictionary = {
 		deleted: "تم حذف الرقم.",
 		duplicate: "هذا الرقم مسجل بالفعل.",
 		forbidden: "تعديل القائمة متاح للمدير الأعلى والمدير فقط.",
-		addedAt: "أُضيف",
-		notificationsEnabled: "الإشعارات مفعّلة",
-		editTitle: "تعديل الرقم",
+		updatedAt: "آخر تحديث",
 		deleteTitle: "حذف هذا الرقم؟",
-		deleteBody: "لن يستقبل {phone} التنبيهات بعد الآن."
+		deleteBody: "سيُحذف {phone} من قائمة الإشعارات."
 	},
 	logs: {
 		title: "السجلات",
@@ -260,7 +264,11 @@ const ar: Dictionary = {
 		session: "الجلسة",
 		apiUrl: "عنوان الواجهة البرمجية",
 		wsUrl: "نقطة الاتصال المباشر",
-		role: "دورك"
+		role: "دورك",
+		notifications: "الإشعارات",
+		messageSound: "تشغيل صوت عند وصول رسالة جديدة",
+		messageSoundHelp: "يُصدر نغمة قصيرة عند وصول أي رسالة من عميل، في أي مكان في صندوق الوارد.",
+		testSound: "تجربة الصوت"
 	}
 }
 

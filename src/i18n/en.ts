@@ -30,11 +30,7 @@ const en = {
 		hoursAgo: "{n} h ago",
 		daysAgo: "{n} d ago",
 		copy: "Copy",
-		copied: "Copied",
-		back: "Back",
-		enabled: "Enabled",
-		disabled: "Disabled",
-		name: "Name"
+		copied: "Copied"
 	},
 	nav: {
 		conversations: "Conversations",
@@ -80,8 +76,8 @@ const en = {
 		selectHint: "Pick a conversation to read the thread.",
 		unassigned: "Unassigned",
 		assignedTo: "Assigned to {name}",
-		unreadCount: "{n} unread",
-		you: "you"
+		you: "you",
+		unreadCount: "{n} unread"
 	},
 	chat: {
 		takeover: "Take over",
@@ -100,7 +96,14 @@ const en = {
 		otherAgent: "Another agent",
 		reconnecting: "Reconnecting…",
 		offline: "Offline",
+		back: "Back to conversations",
 		attach: "Attach file",
+		recordVoice: "Record a voice message",
+		recording: "Recording…",
+		cancelRecording: "Discard recording",
+		sendRecording: "Send voice message",
+		micDenied: "Couldn't access the microphone. Check the browser's permission for this site.",
+		recordingUnsupported: "Voice recording isn't supported in this browser.",
 		image: "Image",
 		download: "Download file",
 		mediaFailed: "Couldn't load this file.",
@@ -113,9 +116,9 @@ const en = {
 		},
 		today: "Today",
 		yesterday: "Yesterday",
-		liveConnected: "Live",
-		liveConnecting: "Connecting…",
-		liveOffline: "Offline — polling",
+		connected: "Live",
+		connecting: "Connecting…",
+		offlinePolling: "Offline — polling",
 		typingHint: "Enter sends, Shift+Enter adds a line",
 		statusPending: "Pending",
 		statusSent: "Sent",
@@ -191,15 +194,18 @@ const en = {
 	},
 	notifyPhones: {
 		title: "Notification numbers",
-		subtitle: "WhatsApp numbers that may receive on-call alerts.",
+		subtitle: "WhatsApp numbers that may receive portal alerts.",
 		listTitle: "Registered numbers",
 		empty: "No notification number yet.",
-		emptyHint: "Add a number to start receiving alerts.",
+		emptyHint: "Add a number to register it for alerts.",
 		addTitle: "Add a number",
-		addSubtitle: "The number must be able to receive WhatsApp messages.",
-		phone: "Phone number",
+		editTitle: "Edit number",
 		name: "Name",
-		namePlaceholder: "Night on-call, supervisor…",
+		nameRequired: "Name is required.",
+		phone: "Phone number",
+		notificationsEnabled: "Notifications enabled",
+		enabled: "Enabled",
+		disabled: "Disabled",
 		add: "Add number",
 		adding: "Adding…",
 		added: "Number added.",
@@ -207,11 +213,9 @@ const en = {
 		deleted: "Number removed.",
 		duplicate: "That number is already registered.",
 		forbidden: "Only super admins and admins can change this list.",
-		addedAt: "Added",
-		notificationsEnabled: "Notifications enabled",
-		editTitle: "Edit number",
+		updatedAt: "Updated",
 		deleteTitle: "Remove this number?",
-		deleteBody: "{phone} will stop receiving alerts."
+		deleteBody: "{phone} will be removed from the notification list."
 	},
 	logs: {
 		title: "Logs",
@@ -258,7 +262,11 @@ const en = {
 		session: "Session",
 		apiUrl: "API base URL",
 		wsUrl: "Realtime endpoint",
-		role: "Your role"
+		role: "Your role",
+		notifications: "Notifications",
+		messageSound: "Play a sound for new messages",
+		messageSoundHelp: "Plays a short chime whenever a customer message arrives, anywhere in the inbox.",
+		testSound: "Preview sound"
 	}
 }
 

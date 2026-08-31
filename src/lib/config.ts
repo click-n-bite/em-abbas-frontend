@@ -70,5 +70,6 @@ export const STORAGE_KEYS = {
 	agent: "ema.agent",
 	locale: "ema.locale",
 	theme: "ema.theme",
-	readNotifications: "ema.notifications.read"
+	readNotifications: "ema.notifications.read",
+	soundEnabled: "ema.notifications.sound"
 } as const

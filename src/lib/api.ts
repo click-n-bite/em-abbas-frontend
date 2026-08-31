@@ -5,7 +5,7 @@ import { notifyPhonesApi } from "./features/notify-phones/api"
 import { notificationsApi } from "./features/notifications/api"
 import { usersApi } from "./features/users/api"
 
-export { ApiError, clearSession, decodeJwt, readToken, request } from "./http"
+export { ApiError, clearSession, decodeJwt, readToken, refreshAccessToken, request } from "./http"
 
 export type { RequestOptions } from "./http"
 
@@ -24,6 +24,7 @@ export const api = {
 	conversations: conversationsApi.list,
 	conversation: conversationsApi.get,
 	messages: conversationsApi.messages,
+	markConversationRead: conversationsApi.markRead,
 	uploadMedia: conversationsApi.uploadMedia,
 	mediaBlobUrl: conversationsApi.mediaBlobUrl,
 	sendMessage: conversationsApi.sendMessage,

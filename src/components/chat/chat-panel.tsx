@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
 	AlertCircle,
 	ArrowLeft,
+	ArrowRight,
 	Bot,
 	Check,
 	CheckCheck,
@@ -11,15 +12,17 @@ import {
 	Download,
 	FileText,
 	Headphones,
+	Mic,
 	MessageSquare,
 	Paperclip,
 	Send,
+	SendHorizontal,
+	Trash2,
 	Undo2,
 	UserRound
 } from "lucide-react"
 import { api } from "@/lib/api"
 import { errorKey } from "@/lib/errors"
-import { playNotificationSound } from "@/lib/sound"
 import { cn, colorFromString, isToday, isYesterday, uuid } from "@/lib/utils"
 import { useI18n } from "@/providers/i18n-provider"
 import { useAuth } from "@/providers/auth-provider"
@@ -30,27 +33,25 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { Spinner } from "@/components/ui/spinner"
 import { useRealtime, type ConnectionState } from "@/hooks/use-realtime"
 import type { Conversation, Message, RealtimeEvent } from "@/lib/types"
+import { WhatsAppAudioPlayer } from "./audio-player"
 
 interface Props {
 	conversation: Conversation | null
 	onConversationChange: (conversation: Conversation) => void
-	/** Shows a WhatsApp-style back arrow (mobile only) that returns to the list. */
 	onBack?: () => void
 }
 
-/** WhatsApp convention: one grey check = sent, two grey checks = delivered,
- *  two blue checks = read. Pending/failed get their own icon entirely. */
 function statusIcon(status: Message["status"]) {
 	if (status === "pending") return Clock
 
 	if (status === "failed") return AlertCircle
 
-	if (status === "sent") return Check
+	if (status === "delivered" || status === "read") return CheckCheck
 
-	return CheckCheck // delivered or read
+	return Check
 }
 
-function statusIconClass(status: Message["status"]) {
+function statusTint(status: Message["status"]): string | undefined {
 	if (status === "read") return "text-sky-300"
 
 	return undefined
@@ -91,9 +92,6 @@ function mergeMessages(current: Message[], incoming: Message[]): Message[] {
 		.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
 }
 
-/** Fetches `GET /media/{id}` with the JWT and hands back an object URL —
- *  <img>/<audio>/<video> can't attach an Authorization header themselves,
- *  so the bytes have to come through an authenticated fetch first. */
 function useMediaBlobUrl(mediaId: string | null | undefined) {
 	const [url, setUrl] = useState<string | null>(null)
 
@@ -153,7 +151,6 @@ function useMediaBlobUrl(mediaId: string | null | undefined) {
 function MessageMedia({ message, outbound }: { message: Message; outbound: boolean }) {
 	const [lightbox, setLightbox] = useState(false)
 
-	// Still uploading locally (optimistic bubble, no mediaId from the server yet).
 	if (!message.mediaId) {
 		if (message.filename) {
 			return (
@@ -237,7 +234,7 @@ function LoadedMedia({
 	}
 
 	if (message.type === "audio") {
-		return <audio src={url} controls className='' />
+		return <WhatsAppAudioPlayer src={url} />
 	}
 
 	return (
@@ -256,7 +253,7 @@ function LoadedMedia({
 }
 
 export function ChatPanel({ conversation, onConversationChange, onBack }: Props) {
-	const { t, formatTime, formatDateTime } = useI18n()
+	const { t, formatTime, formatDateTime, dir } = useI18n()
 
 	const { agent } = useAuth()
 
@@ -288,6 +285,31 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 		node.scrollTo({ top: node.scrollHeight, behavior: smooth ? "smooth" : "auto" })
 	}, [])
 
+	const onConversationChangeRef = useRef(onConversationChange)
+
+	onConversationChangeRef.current = onConversationChange
+
+	const conversationRef = useRef(conversation)
+
+	conversationRef.current = conversation
+
+	const markReadTimer = useRef<number | null>(null)
+
+	const scheduleMarkRead = useCallback((id: string) => {
+		if (markReadTimer.current) window.clearTimeout(markReadTimer.current)
+
+		markReadTimer.current = window.setTimeout(() => {
+			markReadTimer.current = null
+			void api.markConversationRead(id).catch(() => undefined)
+		}, 1200)
+	}, [])
+
+	useEffect(() => {
+		return () => {
+			if (markReadTimer.current) window.clearTimeout(markReadTimer.current)
+		}
+	}, [conversationId])
+
 	useEffect(() => {
 		if (!conversationId) {
 			setMessages([])
@@ -302,10 +324,16 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 		setDraft("")
 
 		api
-			.messages(conversationId, undefined, controller.signal)
+			.messages(conversationId, { markRead: true, signal: controller.signal })
 			.then((list) => {
 				setMessages(list)
 				window.setTimeout(() => scrollToEnd(false), 30)
+
+				const current = conversationRef.current
+
+				if (current && current.id === conversationId && (current.unreadCount ?? 0) > 0) {
+					onConversationChangeRef.current({ ...current, unreadCount: 0 })
+				}
 			})
 			.catch((error) => {
 				if ((error as Error)?.name === "AbortError") return
@@ -316,14 +344,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 
 		return () => controller.abort()
 	}, [conversationId, scrollToEnd])
-
-	const onConversationChangeRef = useRef(onConversationChange)
-
-	onConversationChangeRef.current = onConversationChange
-
-	const conversationRef = useRef(conversation)
-
-	conversationRef.current = conversation
 
 	const onRealtimeEvent = useCallback(
 		(payload: unknown) => {
@@ -336,14 +356,16 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 			if (event.event === "message.created") {
 				if (event.conversationId !== current.id) return
 
-				const incoming = event as unknown as Message
-
-				setMessages((prev) => mergeMessages(prev, [incoming]))
+				setMessages((prev) => mergeMessages(prev, [event as unknown as Message]))
 				window.setTimeout(() => scrollToEnd(), 20)
 
-				// Chat is already open, so the inbox-level chime is skipped for this
-				// conversation — play it here instead.
-				if (incoming.direction === "inbound") playNotificationSound()
+				if ((event as unknown as Message).direction === "inbound") {
+					if ((current.unreadCount ?? 0) !== 0) {
+						onConversationChangeRef.current({ ...current, unreadCount: 0 })
+					}
+
+					scheduleMarkRead(current.id)
+				}
 
 				return
 			}
@@ -372,7 +394,7 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 				})
 			}
 		},
-		[scrollToEnd]
+		[scrollToEnd, scheduleMarkRead]
 	)
 
 	const socketTopics = useMemo(
@@ -402,6 +424,137 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 	const [uploading, setUploading] = useState(false)
 
 	const fileInputRef = useRef<HTMLInputElement>(null)
+
+	const [recording, setRecording] = useState(false)
+
+	const [recordSeconds, setRecordSeconds] = useState(0)
+
+	const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+
+	const recordedChunksRef = useRef<Blob[]>([])
+
+	const streamRef = useRef<MediaStream | null>(null)
+
+	const recordTimerRef = useRef<number | null>(null)
+
+	const recordShouldSendRef = useRef(true)
+
+	const recordingSupported =
+		typeof window !== "undefined" && "MediaRecorder" in window && Boolean(navigator.mediaDevices?.getUserMedia)
+
+	function pickAudioFormat(): { recordType: string; uploadType: string; extension: string } | null {
+		const candidates = [
+			{ recordType: "audio/ogg;codecs=opus", uploadType: "audio/ogg", extension: "ogg" },
+			{ recordType: "audio/mp4", uploadType: "audio/mp4", extension: "m4a" },
+			{ recordType: "audio/aac", uploadType: "audio/aac", extension: "aac" },
+			{ recordType: "audio/webm;codecs=opus", uploadType: "audio/ogg", extension: "ogg" },
+			{ recordType: "audio/webm", uploadType: "audio/ogg", extension: "ogg" }
+		]
+
+		for (const candidate of candidates) {
+			if (MediaRecorder.isTypeSupported(candidate.recordType)) return candidate
+		}
+
+		return null
+	}
+
+	const stopRecordTimer = () => {
+		if (recordTimerRef.current) {
+			window.clearInterval(recordTimerRef.current)
+			recordTimerRef.current = null
+		}
+	}
+
+	const releaseMic = () => {
+		streamRef.current?.getTracks().forEach((track) => track.stop())
+		streamRef.current = null
+	}
+
+	const startRecording = async () => {
+		if (!canReply || recording || uploading || !recordingSupported) return
+
+		const format = pickAudioFormat()
+
+		if (!format) {
+			push(t("chat.recordingUnsupported"), "error")
+
+			return
+		}
+
+		try {
+			const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+
+			streamRef.current = stream
+			recordedChunksRef.current = []
+			recordShouldSendRef.current = true
+
+			const recorder = new MediaRecorder(stream, { mimeType: format.recordType })
+
+			recorder.ondataavailable = (event) => {
+				if (event.data.size > 0) recordedChunksRef.current.push(event.data)
+			}
+
+			recorder.onstop = () => {
+				releaseMic()
+				stopRecordTimer()
+
+				const shouldSend = recordShouldSendRef.current
+
+				const chunks = recordedChunksRef.current
+
+				recordedChunksRef.current = []
+				setRecording(false)
+				setRecordSeconds(0)
+
+				if (!shouldSend || chunks.length === 0) return
+
+				const blob = new Blob(chunks, { type: format.uploadType })
+
+				const file = new File([blob], `voice-${Date.now()}.${format.extension}`, { type: format.uploadType })
+
+				void sendFile(file)
+			}
+
+			mediaRecorderRef.current = recorder
+			recorder.start()
+
+			setRecording(true)
+			setRecordSeconds(0)
+			recordTimerRef.current = window.setInterval(() => setRecordSeconds((seconds) => seconds + 1), 1000)
+		} catch {
+			push(t("chat.micDenied"), "error")
+			releaseMic()
+		}
+	}
+
+	const finishRecording = (send: boolean) => {
+		recordShouldSendRef.current = send
+
+		if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+			mediaRecorderRef.current.stop()
+		} else {
+			releaseMic()
+			stopRecordTimer()
+			setRecording(false)
+			setRecordSeconds(0)
+		}
+	}
+
+	useEffect(() => {
+		return () => {
+			stopRecordTimer()
+			releaseMic()
+		}
+	}, [])
+
+	function formatRecordTime(totalSeconds: number): string {
+		const minutes = Math.floor(totalSeconds / 60)
+
+		const seconds = totalSeconds % 60
+
+		return `${minutes}:${String(seconds).padStart(2, "0")}`
+	}
+	// -------------------------------------------------------------------------
 
 	const send = async () => {
 		const text = draft.trim()
@@ -563,52 +716,60 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 
 	return (
 		<div className='flex h-full flex-col overflow-hidden'>
-			<header className='flex flex-shrink-0 flex-wrap items-center gap-3 border-b border-ink-200 p-3 dark:border-ink-700'>
-				{onBack ? (
-					<button
-						type='button'
-						onClick={onBack}
-						className='btn-ghost -ms-1.5 h-9 w-9 shrink-0 justify-center rounded-full p-0 lg:hidden'
-						aria-label={t("common.back")}
-						title={t("common.back")}>
-						<ArrowLeft className='h-4.5 w-4.5 rtl:rotate-180' aria-hidden='true' />
-					</button>
-				) : null}
-				<Avatar name={conversation.customerName} seed={conversation.phone} />
-				<div className='min-w-0 flex-1'>
-					<p dir='auto' className='truncate text-sm font-semibold text-ink-900 dark:text-ink-50'>
-						{conversation.customerName?.trim() || conversation.phone}
-					</p>
-					<p className='truncate text-xs text-ink-500 dark:text-ink-400' dir='ltr'>
-						{conversation.phone}
-					</p>
+			<header className='flex flex-shrink-0 flex-col gap-2 border-b border-ink-200 p-3 dark:border-ink-700 lg:flex-row lg:items-center lg:gap-3'>
+				<div className='flex min-w-0 items-center gap-3'>
+					{onBack ? (
+						<button
+							type='button'
+							onClick={onBack}
+							aria-label={t("chat.back")}
+							title={t("chat.back")}
+							className='btn-ghost -ms-1 flex-shrink-0 p-2 lg:hidden'>
+							{dir === "rtl" ? (
+								<ArrowRight className='h-4 w-4' aria-hidden='true' />
+							) : (
+								<ArrowLeft className='h-4 w-4' aria-hidden='true' />
+							)}
+						</button>
+					) : null}
+					<Avatar name={conversation.customerName} seed={conversation.phone} />
+					<div className='min-w-0 flex-1'>
+						<p dir='auto' className='truncate text-sm font-semibold text-ink-900 dark:text-ink-50'>
+							{conversation.customerName?.trim() || conversation.phone}
+						</p>
+						<p className='truncate text-xs text-ink-500 dark:text-ink-400' dir='ltr'>
+							{conversation.phone}
+						</p>
+					</div>
 				</div>
 
-				<ModeBadge mode={conversation.mode} />
+				<div className='flex flex-wrap items-center gap-2 ps-1 lg:ms-auto lg:flex-nowrap lg:ps-0'>
+					<ModeBadge mode={conversation.mode} />
 
-				{connectionState !== "connected" ? (
-					<span
-						className='flex items-center gap-1 text-[11px] text-ink-400'
-						title={t(connectionState === "connecting" ? "chat.reconnecting" : "chat.offline")}>
-						<span className='h-1.5 w-1.5 rounded-full bg-amber-500' aria-hidden='true' />
-						{t(connectionState === "connecting" ? "chat.reconnecting" : "chat.offline")}
-					</span>
-				) : null}
+					{connectionState !== "connected" ? (
+						<span
+							className='flex items-center gap-1 text-[11px] text-ink-400'
+							title={t(connectionState === "connecting" ? "chat.reconnecting" : "chat.offline")}>
+							<span className='h-1.5 w-1.5 rounded-full bg-amber-500' aria-hidden='true' />
+							{t(connectionState === "connecting" ? "chat.reconnecting" : "chat.offline")}
+						</span>
+					) : null}
 
-				{conversation.mode === "agent" && mine ? (
-					<button type='button' className='btn-secondary' onClick={() => changeMode("handoff")} disabled={modeBusy}>
-						{modeBusy ? <Spinner /> : <Undo2 className='h-4 w-4' aria-hidden='true' />}
-						{modeBusy ? t("chat.handingOff") : t("chat.handoff")}
-					</button>
-				) : conversation.mode !== "agent" ? (
-					<button type='button' className='btn-primary' onClick={() => changeMode("takeover")} disabled={modeBusy}>
-						{modeBusy ? <Spinner /> : <Headphones className='h-4 w-4' aria-hidden='true' />}
-						{modeBusy ? t("chat.takingOver") : t("chat.takeover")}
-					</button>
-				) : null}
+					{conversation.mode === "agent" && mine ? (
+						<button type='button' className='btn-secondary' onClick={() => changeMode("handoff")} disabled={modeBusy}>
+							{modeBusy ? <Spinner /> : <Undo2 className='h-4 w-4' aria-hidden='true' />}
+							{modeBusy ? t("chat.handingOff") : t("chat.handoff")}
+						</button>
+					) : conversation.mode !== "agent" ? (
+						<button type='button' className='btn-primary' onClick={() => changeMode("takeover")} disabled={modeBusy}>
+							{modeBusy ? <Spinner /> : <Headphones className='h-4 w-4' aria-hidden='true' />}
+							{modeBusy ? t("chat.takingOver") : t("chat.takeover")}
+						</button>
+					) : null}
+				</div>
 			</header>
 
-			<div ref={scrollRef} className='relative min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6'>
+			<div ref={scrollRef} className='min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6'>
 				{loading ? (
 					<div className='flex flex-col gap-3'>
 						{[0, 1, 2, 3].map((index) => (
@@ -692,7 +853,7 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 											<span dir='ltr'>{formatTime(message.createdAt)}</span>
 											{outbound ? (
 												<>
-													<StatusIcon className={cn("h-3 w-3", statusIconClass(message.status))} aria-hidden='true' />
+													<StatusIcon className={cn("h-3 w-3", statusTint(message.status))} aria-hidden='true' />
 													<span className='sr-only'>
 														{t(`chat.status${message.status.charAt(0).toUpperCase()}${message.status.slice(1)}`)}
 													</span>
@@ -712,6 +873,37 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 					<p className='rounded-xl bg-ink-100 px-3 py-2 text-center text-xs text-ink-500 dark:bg-ink-900 dark:text-ink-400'>
 						{lockedReason}
 					</p>
+				) : recording ? (
+					<div className='flex items-center gap-2'>
+						<button
+							type='button'
+							onClick={() => finishRecording(false)}
+							className='btn-ghost h-[2.6rem] flex-shrink-0 px-3 text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950'
+							aria-label={t("chat.cancelRecording")}
+							title={t("chat.cancelRecording")}>
+							<Trash2 className='h-4 w-4' aria-hidden='true' />
+						</button>
+
+						<div className='input flex h-[2.6rem] flex-1 items-center gap-2.5 py-0'>
+							<span className='relative flex h-2.5 w-2.5 flex-shrink-0' aria-hidden='true'>
+								<span className='absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-75' />
+								<span className='relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-600' />
+							</span>
+							<span dir='ltr' className='text-sm font-medium tabular-nums text-ink-700 dark:text-ink-200'>
+								{formatRecordTime(recordSeconds)}
+							</span>
+							<span className='truncate text-xs text-ink-400'>{t("chat.recording")}</span>
+						</div>
+
+						<button
+							type='button'
+							onClick={() => finishRecording(true)}
+							className='btn-primary h-[2.6rem] flex-shrink-0 px-4'
+							aria-label={t("chat.sendRecording")}
+							title={t("chat.sendRecording")}>
+							<SendHorizontal className='h-4 w-4' aria-hidden='true' />
+						</button>
+					</div>
 				) : (
 					<div className='flex items-end gap-2'>
 						<input
@@ -749,18 +941,30 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 							disabled={!canReply}
 							className='input max-h-32 min-h-[2.6rem] resize-y py-2.5'
 						/>
-						<button
-							type='button'
-							className='btn-primary h-[2.6rem] flex-shrink-0 px-4'
-							onClick={() => void send()}
-							disabled={!canReply || sending || uploading || draft.trim().length === 0}
-							aria-label={t("chat.send")}>
-							{sending ? <Spinner /> : <Send className='h-4 w-4' aria-hidden='true' />}
-							<span className='hidden sm:inline'>{sending ? t("chat.sending") : t("chat.send")}</span>
-						</button>
+						{draft.trim().length === 0 && recordingSupported ? (
+							<button
+								type='button'
+								className='btn-primary h-[2.6rem] flex-shrink-0 px-4'
+								onClick={() => void startRecording()}
+								disabled={!canReply || uploading}
+								aria-label={t("chat.recordVoice")}
+								title={t("chat.recordVoice")}>
+								<Mic className='h-4 w-4' aria-hidden='true' />
+							</button>
+						) : (
+							<button
+								type='button'
+								className='btn-primary h-[2.6rem] flex-shrink-0 px-4'
+								onClick={() => void send()}
+								disabled={!canReply || sending || uploading || draft.trim().length === 0}
+								aria-label={t("chat.send")}>
+								{sending ? <Spinner /> : <Send className='h-4 w-4' aria-hidden='true' />}
+								<span className='hidden sm:inline'>{sending ? t("chat.sending") : t("chat.send")}</span>
+							</button>
+						)}
 					</div>
 				)}
-				{lockedReason ? null : <p className='mt-1.5 text-[11px] text-ink-400'>{t("chat.typingHint")}</p>}
+				{lockedReason || recording ? null : <p className='mt-1.5 text-[11px] text-ink-400'>{t("chat.typingHint")}</p>}
 			</footer>
 		</div>
 	)
