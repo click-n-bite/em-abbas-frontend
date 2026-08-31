@@ -44,9 +44,6 @@ export const LOCAL = { baseUrl: "", auth: true } as const
 
 let refreshing: Promise<string | null> | null = null
 
-// If the refresh call itself hangs (flaky network, dead connection), don't
-// let the caller wait forever — treat it as a failed refresh so the session
-// is torn down and the person is sent back to /login right away.
 const REFRESH_TIMEOUT_MS = 8000
 
 async function tryRefresh(): Promise<string | null> {
@@ -55,6 +52,7 @@ async function tryRefresh(): Promise<string | null> {
 	if (!rt) return null
 
 	const controller = new AbortController()
+
 	const timeout = window.setTimeout(() => controller.abort(), REFRESH_TIMEOUT_MS)
 
 	try {
@@ -68,18 +66,19 @@ async function tryRefresh(): Promise<string | null> {
 		if (!res.ok) return null
 
 		const data = await res.json()
+
 		const { accessToken, refreshToken } = data?.data ?? data
 
 		if (!accessToken) return null
 
 		window.localStorage.setItem(STORAGE_KEYS.token, accessToken)
+
 		if (refreshToken) window.localStorage.setItem(STORAGE_KEYS.refreshToken, refreshToken)
+
 		window.dispatchEvent(new CustomEvent("ema:token-refreshed", { detail: accessToken }))
 
 		return accessToken
 	} catch {
-		// Network error, or the timeout above aborted it — either way, no
-		// usable token came back.
 		return null
 	} finally {
 		window.clearTimeout(timeout)
@@ -124,6 +123,7 @@ async function authorizedFetch(path: string, init: RequestInit, allowRefresh = t
 
 export async function uploadFile<T>(path: string, file: File, signal?: AbortSignal): Promise<T> {
 	const form = new FormData()
+
 	form.append("file", file)
 
 	let response: Response
@@ -137,6 +137,7 @@ export async function uploadFile<T>(path: string, file: File, signal?: AbortSign
 	}
 
 	const raw = await response.text()
+
 	let payload: unknown = null
 
 	if (raw) {
@@ -149,7 +150,9 @@ export async function uploadFile<T>(path: string, file: File, signal?: AbortSign
 
 	if (!response.ok) {
 		const record = (payload ?? {}) as Record<string, unknown>
+
 		const code = record.code ?? record.error ?? `HTTP_${response.status}`
+
 		const message = record.message ?? response.statusText
 
 		throw new ApiError(response.status, String(code), String(message))
@@ -205,7 +208,6 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
 		throw new ApiError(0, "NETWORK_ERROR", "errors.network")
 	}
-
 
 	if (response.status === 401 && auth && !path.startsWith("/api/auth/refresh")) {
 		refreshing ??= tryRefresh().finally(() => {

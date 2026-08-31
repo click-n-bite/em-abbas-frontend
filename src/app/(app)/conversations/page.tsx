@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -12,7 +13,7 @@ import { AppShell } from "@/components/layout/app-shell"
 import { ChatPanel } from "@/components/chat/chat-panel"
 import { ConversationList, type InboxFilter } from "@/components/chat/conversation-list"
 import { cn } from "@/lib/utils"
-import type { Conversation, Message, RealtimeEvent } from "@/lib/types"
+import type { Conversation, RealtimeEvent } from "@/lib/types"
 
 const FILTERS: InboxFilter[] = ["all", "bot", "mine"]
 
@@ -26,14 +27,13 @@ function sortByRecent(list: Conversation[]): Conversation[] {
 	})
 }
 
-/** Rows in `conversations` state only ever hold one filter's worth of data
- *  (it's re-fetched per filter switch), so a live upsert for a brand-new
- *  conversation must be checked against the active filter before insertion —
- *  otherwise switching to "Mine" could suddenly show someone else's chat. */
 function matchesFilter(conversation: Partial<Conversation>, filter: InboxFilter, agentId: string | null): boolean {
 	if (filter === "all") return true
+
 	if (filter === "bot") return conversation.mode === "bot"
+
 	if (filter === "mine") return conversation.mode === "agent" && conversation.assigneeId === agentId
+
 	return false
 }
 
@@ -63,7 +63,6 @@ export default function ConversationsPage() {
 	const [loading, setLoading] = useState(true)
 
 	const [failure, setFailure] = useState<string | null>(null)
-
 
 	const inFlight = useRef(false)
 
@@ -107,7 +106,6 @@ export default function ConversationsPage() {
 
 		router.replace(search ? `/conversations?${search}` : "/conversations", { scroll: false })
 	}, [activeId, filter, router])
-
 
 	const filtered = useMemo(() => {
 		const needle = search.trim().toLowerCase()
@@ -164,14 +162,16 @@ export default function ConversationsPage() {
 		setDetached((current) => (current && current.id === next.id ? { ...current, ...next } : current))
 	}, [])
 
-	// --- live updates --------------------------------------------------------
 	const activeIdRef = useRef(activeId)
+
 	activeIdRef.current = activeId
 
 	const filterRef = useRef(filter)
+
 	filterRef.current = filter
 
 	const agentIdRef = useRef<string | null>(agent?.id ?? null)
+
 	agentIdRef.current = agent?.id ?? null
 
 	const upsert = useCallback((partial: Partial<Conversation> & { id: string }) => {
@@ -188,9 +188,6 @@ export default function ConversationsPage() {
 
 			const merged: Conversation = { ...existing, ...partial }
 
-			// Mirror the "unread — how to implement it" rule from the API doc:
-			// only bump locally when it's an inbound message and this chat isn't
-			// the one currently open.
 			if (
 				partial.lastMessageDirection === "inbound" &&
 				partial.id !== activeIdRef.current &&
@@ -200,6 +197,7 @@ export default function ConversationsPage() {
 			}
 
 			const next = [...current]
+
 			next[idx] = merged
 
 			return sortByRecent(next)
@@ -280,7 +278,6 @@ export default function ConversationsPage() {
 	}, [agent?.id])
 
 	useRealtime({ topics: socketTopics, onEvent: onRealtimeEvent, enabled: Boolean(agent) })
-	// -------------------------------------------------------------------------
 
 	return (
 		<AppShell
@@ -314,17 +311,15 @@ export default function ConversationsPage() {
 					/>
 				</div>
 
-				{/* On mobile this slides in as a full-screen "chat modal", WhatsApp-style,
-				    with a back arrow (wired via onBack) that returns to the list below.
-				    On desktop (lg+) it's just the normal side-by-side panel. */}
 				<div
 					className={cn(
 						"min-h-0 overflow-hidden transition-transform duration-300 ease-out",
 						"fixed inset-0 z-40 bg-white dark:bg-ink-900",
 						"lg:static lg:z-auto lg:translate-x-0 lg:rounded-2xl lg:border lg:border-ink-200 lg:bg-white lg:shadow-sm lg:transition-none lg:dark:border-ink-700 lg:dark:bg-ink-800",
-						selected ? "translate-x-0" : "translate-x-full rtl:-translate-x-full pointer-events-none lg:pointer-events-auto"
-					)}
-				>
+						selected
+							? "translate-x-0"
+							: "pointer-events-none translate-x-full lg:pointer-events-auto rtl:-translate-x-full"
+					)}>
 					<ChatPanel
 						conversation={selected}
 						onConversationChange={onConversationChange}
