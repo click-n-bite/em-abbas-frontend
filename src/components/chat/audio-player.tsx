@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Pause, Play } from "lucide-react"
+import { formatTime } from "@/lib/format-time"
 
 interface WhatsAppAudioPlayerProps {
 	src: string
+	sentTime?: string
 }
 
-export function WhatsAppAudioPlayer({ src }: WhatsAppAudioPlayerProps) {
+export function WhatsAppAudioPlayer({ src, sentTime }: WhatsAppAudioPlayerProps) {
 	const audioRef = useRef<HTMLAudioElement | null>(null)
 
 	const [isPlaying, setIsPlaying] = useState(false)
@@ -79,18 +81,6 @@ export function WhatsAppAudioPlayer({ src }: WhatsAppAudioPlayerProps) {
 		audio.currentTime = percentage * duration
 	}
 
-	const formatTime = (seconds: number) => {
-		if (!Number.isFinite(seconds)) {
-			return "0:00"
-		}
-
-		const minutes = Math.floor(seconds / 60)
-
-		const remainingSeconds = Math.floor(seconds % 60)
-
-		return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`
-	}
-
 	const progress = duration > 0 ? (currentTime / duration) * 100 : 0
 
 	const waveform = [
@@ -99,19 +89,25 @@ export function WhatsAppAudioPlayer({ src }: WhatsAppAudioPlayerProps) {
 	]
 
 	return (
-		<div className='mb-1 flex w-[280px] max-w-full items-center gap-3 rounded-2xl bg-gray-100 px-3 py-2 dark:bg-gray-800'>
+		<div className='flex min-w-[230px] max-w-[280px] items-center gap-2 py-1'>
 			<audio ref={audioRef} src={src} preload='metadata' />
 
+			{/* Play / Pause */}
 			<button
 				type='button'
 				onClick={togglePlay}
-				className='flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-600 text-white transition hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-400'
+				className='flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-200 text-ink-600 transition hover:bg-ink-300 dark:bg-ink-700 dark:text-ink-200 dark:hover:bg-ink-600'
 				aria-label={isPlaying ? "Pause audio" : "Play audio"}>
-				{isPlaying ? <Pause className='h-5 w-5 fill-current' /> : <Play className='ml-0.5 h-5 w-5 fill-current' />}
+				{isPlaying ? (
+					<Pause className='h-3.5 w-3.5 fill-current' />
+				) : (
+					<Play className='ml-0.5 h-3.5 w-3.5 fill-current' />
+				)}
 			</button>
 
 			<div className='min-w-0 flex-1'>
-				<div onClick={handleProgressClick} className='flex h-8 cursor-pointer items-center gap-[2px]'>
+				{/* Waveform */}
+				<div onClick={handleProgressClick} className='flex h-7 cursor-pointer items-center gap-[2px]'>
 					{waveform.map((height, index) => {
 						const percentage = ((index + 1) / waveform.length) * 100
 
@@ -121,20 +117,20 @@ export function WhatsAppAudioPlayer({ src }: WhatsAppAudioPlayerProps) {
 							<span
 								key={index}
 								className={`w-[2px] shrink-0 rounded-full transition-colors ${
-									active ? "bg-gray-700 dark:bg-gray-200" : "bg-gray-300 dark:bg-gray-600"
+									active ? "bg-ink-500 dark:bg-ink-300" : "bg-ink-200 dark:bg-ink-600"
 								}`}
 								style={{
-									height: `${height}px`
+									height: `${height * 0.65}px`
 								}}
 							/>
 						)
 					})}
 				</div>
 
-				<div className='mt-0.5 flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400'>
-					<span>{formatTime(currentTime)}</span>
+				<div className='mt-0.5 flex items-center justify-between text-[10px] leading-none text-gray-300 dark:text-gray-300'>
+					<span dir='ltr'>{formatTime(duration)}</span>
 
-					<span>{formatTime(duration)}</span>
+					{sentTime ? <span dir='ltr'>{sentTime}</span> : null}
 				</div>
 			</div>
 		</div>

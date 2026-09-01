@@ -44,6 +44,8 @@ export const conversationsApi = {
 
 		const payload = await request<unknown>(`/conversations/${id}/messages${query}`, { signal })
 
+		console.log("payload", payload)
+
 		return unwrapList<Message>(payload, "messages")
 	},
 

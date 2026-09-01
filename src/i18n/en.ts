@@ -91,7 +91,7 @@ const en = {
 		sending: "Sending…",
 		emptyThread: "No messages in this conversation yet.",
 		customer: "Customer",
-		bot: "AI assistant",
+		bot: "AI",
 		agent: "Agent",
 		otherAgent: "Another agent",
 		reconnecting: "Reconnecting…",

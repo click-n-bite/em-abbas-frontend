@@ -63,6 +63,12 @@ function agentKeyOf(message: Message): string | null {
 	return key && key.trim() ? key.trim() : null
 }
 
+const ARABIC_CHAR_PATTERN = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/
+
+function textDirOf(text: string | null): "rtl" | "auto" {
+	return text && ARABIC_CHAR_PATTERN.test(text) ? "rtl" : "auto"
+}
+
 function mergeMessages(current: Message[], incoming: Message[]): Message[] {
 	if (incoming.length === 0) return current
 
@@ -182,7 +188,7 @@ function LoadedMedia({
 	lightbox: boolean
 	setLightbox: (value: boolean) => void
 }) {
-	const { t } = useI18n()
+	const { t, formatTime } = useI18n()
 
 	const { url, loading, error } = useMediaBlobUrl(message.mediaId)
 
@@ -234,7 +240,7 @@ function LoadedMedia({
 	}
 
 	if (message.type === "audio") {
-		return <WhatsAppAudioPlayer src={url} />
+		return <WhatsAppAudioPlayer src={url} sentTime={formatTime(message.createdAt)} />
 	}
 
 	return (
@@ -842,24 +848,29 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 										<MessageMedia message={message} outbound={outbound} />
 
 										{message.text || (!message.mediaId && !message.filename) ? (
-											<p className='whitespace-pre-wrap break-words'>{message.text ?? `[${message.type}]`}</p>
+											<p dir={textDirOf(message.text)} className='whitespace-pre-wrap break-words'>
+												{message.text ?? `[${message.type}]`}
+											</p>
 										) : null}
 
-										<p
-											className={cn(
-												"mt-1 flex items-center justify-end gap-1 text-[10px]",
-												outbound ? "text-brand-100/90" : "text-ink-400"
-											)}>
-											<span dir='ltr'>{formatTime(message.createdAt)}</span>
-											{outbound ? (
-												<>
-													<StatusIcon className={cn("h-3 w-3", statusTint(message.status))} aria-hidden='true' />
-													<span className='sr-only'>
-														{t(`chat.status${message.status.charAt(0).toUpperCase()}${message.status.slice(1)}`)}
-													</span>
-												</>
-											) : null}
-										</p>
+										{message.type !== "audio" ? (
+											<p
+												className={cn(
+													"mt-1 flex items-center justify-end gap-1 text-[10px]",
+													outbound ? "text-brand-100/90" : "text-ink-400"
+												)}>
+												<span dir='ltr'>{formatTime(message.createdAt)}</span>
+
+												{outbound ? (
+													<>
+														<StatusIcon className={cn("h-3 w-3", statusTint(message.status))} aria-hidden='true' />
+														<span className='sr-only'>
+															{t(`chat.status${message.status.charAt(0).toUpperCase()}${message.status.slice(1)}`)}
+														</span>
+													</>
+												) : null}
+											</p>
+										) : null}
 									</div>
 								</div>
 							</div>
