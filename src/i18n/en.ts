@@ -124,7 +124,18 @@ const en = {
 		statusSent: "Sent",
 		statusDelivered: "Delivered",
 		statusRead: "Read",
-		statusFailed: "Failed"
+		statusFailed: "Failed",
+		rich: {
+			menu: "Menu",
+			template: "Template",
+			otpTemplate: "Authentication template",
+			code: "Code",
+			location: "Location",
+			viewOnMap: "View on map",
+			contact: "Contact",
+			flowCta: "Open form",
+			tapped: "Tapped"
+		}
 	},
 	mode: { bot: "AI", waiting: "Waiting", agent: "Agent" },
 	notifications: {

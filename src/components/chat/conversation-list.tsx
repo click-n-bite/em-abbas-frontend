@@ -8,6 +8,7 @@ import { ModeBadge } from "@/components/ui/badges"
 import { EmptyState } from "@/components/ui/empty-state"
 import { cn } from "@/lib/utils"
 import type { Conversation } from "@/lib/types"
+import { textDirOf } from "./chat-panel"
 
 export type InboxFilter = "all" | "bot" | "mine"
 
@@ -129,6 +130,7 @@ export function ConversationList({
 											</span>
 											<span className='mt-0.5 flex items-center justify-between gap-2'>
 												<span
+													dir={textDirOf(conversation.preview)}
 													className={cn(
 														"min-w-0 flex-1 truncate text-xs",
 														unread > 0 ? "font-medium text-ink-800 dark:text-ink-100" : "text-ink-500 dark:text-ink-400"

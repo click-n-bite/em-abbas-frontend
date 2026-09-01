@@ -126,7 +126,18 @@ const ar: Dictionary = {
 		statusSent: "أُرسلت",
 		statusDelivered: "تم التوصيل",
 		statusRead: "مقروءة",
-		statusFailed: "فشلت"
+		statusFailed: "فشلت",
+		rich: {
+			menu: "القائمة",
+			template: "قالب",
+			otpTemplate: "قالب توثيق",
+			code: "الرمز",
+			location: "الموقع",
+			viewOnMap: "عرض على الخريطة",
+			contact: "جهة اتصال",
+			flowCta: "فتح النموذج",
+			tapped: "تم النقر"
+		}
 	},
 	mode: { bot: "الذكاء الاصطناعي", waiting: "بانتطار", agent: "موظف" },
 	notifications: {

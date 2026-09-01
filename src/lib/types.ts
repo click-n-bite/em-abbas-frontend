@@ -10,9 +10,19 @@ export interface RealtimeEvent {
 		| "handoff.requested"
 	[key: string]: unknown
 }
+
 export type { Role, SessionAgent, LoginResponse, AccessTokenClaims } from "./features/auth/types"
 
-export type { Conversation, ConversationFilter, Message, Mode } from "./features/conversations/types"
+export type {
+	ButtonItem,
+	Conversation,
+	ConversationFilter,
+	ListRow,
+	ListSection,
+	Message,
+	MessagePayload,
+	Mode
+} from "./features/conversations/types"
 
 export type { AppNotification } from "./features/notifications/types"
 

@@ -9,17 +9,24 @@ import {
 	Check,
 	CheckCheck,
 	Clock,
+	Contact,
 	Download,
+	ExternalLink,
 	FileText,
 	Headphones,
+	KeyRound,
+	ListChecks,
+	MapPin,
 	Mic,
 	MessageSquare,
+	MousePointerClick,
 	Paperclip,
 	Send,
 	SendHorizontal,
 	Trash2,
 	Undo2,
-	UserRound
+	UserRound,
+	Workflow
 } from "lucide-react"
 import { api } from "@/lib/api"
 import { errorKey } from "@/lib/errors"
@@ -65,7 +72,7 @@ function agentKeyOf(message: Message): string | null {
 
 const ARABIC_CHAR_PATTERN = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/
 
-function textDirOf(text: string | null): "rtl" | "auto" {
+export function textDirOf(text: string | null): "rtl" | "auto" {
 	return text && ARABIC_CHAR_PATTERN.test(text) ? "rtl" : "auto"
 }
 
@@ -255,6 +262,226 @@ function LoadedMedia({
 			<span className='min-w-0 flex-1 truncate'>{message.filename ?? t("chat.download")}</span>
 			<Download className='h-4 w-4 flex-shrink-0' aria-hidden='true' />
 		</a>
+	)
+}
+
+/** Message types that carry a `payload` and render their own text + widget instead of the plain text bubble. */
+const RICH_TYPES = new Set(["buttons", "list", "template", "otp", "location", "contacts", "flow"])
+
+function RichBody({ message }: { message: Message }) {
+	if (!message.text) return null
+
+	return (
+		<p dir={textDirOf(message.text)} className='mb-2 whitespace-pre-wrap break-words'>
+			{message.text}
+		</p>
+	)
+}
+
+function RichPanel({ outbound, children }: { outbound: boolean; children: React.ReactNode }) {
+	return (
+		<div className={cn("rounded-lg px-3 py-2 text-xs", outbound ? "bg-white/10" : "bg-ink-50 dark:bg-ink-900/60")}>
+			{children}
+		</div>
+	)
+}
+
+function RichLabel({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+	return (
+		<p className='mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide opacity-80'>
+			{icon}
+			{children}
+		</p>
+	)
+}
+
+function MessageRichContent({ message, outbound }: { message: Message; outbound: boolean }) {
+	const { t } = useI18n()
+
+	const payload = message.payload ?? {}
+
+	const chipClass = cn(
+		"inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium",
+		outbound ? "border-white/30" : "border-ink-300 dark:border-ink-600"
+	)
+
+	if (message.type === "buttons") {
+		const buttons = Array.isArray(payload.buttons) ? payload.buttons : []
+
+		return (
+			<div className='mb-1'>
+				<RichBody message={message} />
+
+				{buttons.length > 0 ? (
+					<div className='flex flex-wrap gap-1.5'>
+						{buttons.map((button) => (
+							<span key={button.id} className={chipClass}>
+								{button.title}
+							</span>
+						))}
+					</div>
+				) : null}
+			</div>
+		)
+	}
+
+	if (message.type === "list") {
+		const sections = Array.isArray(payload.sections) ? payload.sections : []
+
+		return (
+			<div className='mb-1'>
+				<RichBody message={message} />
+
+				<RichPanel outbound={outbound}>
+					{payload.buttonText ? (
+						<RichLabel icon={<ListChecks className='h-3.5 w-3.5' aria-hidden='true' />}>{payload.buttonText}</RichLabel>
+					) : null}
+
+					{sections.map((section, sectionIndex) => (
+						<div key={`${section.title ?? "section"}-${sectionIndex}`} className='mb-2 last:mb-0'>
+							{section.title ? <p className='mb-1 text-[11px] font-semibold opacity-70'>{section.title}</p> : null}
+
+							<ul className='list-disc ps-4'>
+								{(section.rows ?? []).map((row) => (
+									<li key={row.id} className='mb-0.5 last:mb-0'>
+										<span className='font-medium'>{row.title}</span>
+
+										{row.description ? <span className='opacity-70'> — {row.description}</span> : null}
+									</li>
+								))}
+							</ul>
+						</div>
+					))}
+				</RichPanel>
+			</div>
+		)
+	}
+
+	if (message.type === "template" || message.type === "otp") {
+		const isOtp = message.type === "otp"
+
+		return (
+			<div className='mb-1'>
+				<RichBody message={message} />
+
+				<RichPanel outbound={outbound}>
+					<RichLabel
+						icon={
+							isOtp ? (
+								<KeyRound className='h-3.5 w-3.5' aria-hidden='true' />
+							) : (
+								<FileText className='h-3.5 w-3.5' aria-hidden='true' />
+							)
+						}>
+						{isOtp ? t("chat.rich.otpTemplate") : t("chat.rich.template")}
+					</RichLabel>
+
+					{payload.templateName ? <p className='font-mono text-[11px] opacity-90'>{payload.templateName}</p> : null}
+
+					{Array.isArray(payload.bodyParams) && payload.bodyParams.length > 0 ? (
+						<ul className='mt-1 list-disc ps-4'>
+							{payload.bodyParams.map((param, index) => (
+								<li key={index}>{param}</li>
+							))}
+						</ul>
+					) : null}
+
+					{isOtp && payload.code ? (
+						<p className='mt-1'>
+							<span className='opacity-70'>{t("chat.rich.code")}: </span>
+							<span className='font-mono font-semibold tracking-widest'>{payload.code}</span>
+						</p>
+					) : null}
+				</RichPanel>
+			</div>
+		)
+	}
+
+	if (message.type === "location") {
+		const hasCoords = typeof payload.latitude === "number" && typeof payload.longitude === "number"
+
+		return (
+			<div className='mb-1'>
+				<RichBody message={message} />
+
+				<RichPanel outbound={outbound}>
+					<RichLabel icon={<MapPin className='h-3.5 w-3.5' aria-hidden='true' />}>{t("chat.rich.location")}</RichLabel>
+
+					{payload.locationName ? <p className='font-medium'>{payload.locationName}</p> : null}
+
+					{payload.address ? <p className='opacity-70'>{payload.address}</p> : null}
+
+					{hasCoords ? (
+						<a
+							href={`https://www.google.com/maps?q=${payload.latitude},${payload.longitude}`}
+							target='_blank'
+							rel='noreferrer'
+							className='mt-1 inline-flex items-center gap-1 underline underline-offset-2'>
+							{t("chat.rich.viewOnMap")}
+							<ExternalLink className='h-3 w-3' aria-hidden='true' />
+						</a>
+					) : null}
+				</RichPanel>
+			</div>
+		)
+	}
+
+	if (message.type === "contacts") {
+		return (
+			<div className='mb-1'>
+				<RichBody message={message} />
+
+				<RichPanel outbound={outbound}>
+					<RichLabel icon={<Contact className='h-3.5 w-3.5' aria-hidden='true' />}>{t("chat.rich.contact")}</RichLabel>
+
+					{payload.contactName ? <p className='font-medium'>{payload.contactName}</p> : null}
+					{payload.phone ? (
+						<p dir='ltr' className='opacity-70'>
+							{payload.phone}
+						</p>
+					) : null}
+				</RichPanel>
+			</div>
+		)
+	}
+
+	if (message.type === "flow") {
+		return (
+			<div className='mb-1'>
+				<RichBody message={message} />
+
+				<div className={chipClass}>
+					<Workflow className='me-1.5 h-3.5 w-3.5' aria-hidden='true' />
+					{payload.flowCta || t("chat.rich.flowCta")}
+				</div>
+			</div>
+		)
+	}
+
+	return null
+}
+
+/** Inbound button/list taps and template quick-replies: show the tapped choice as a small chip above the text. */
+function MessageTapHint({ message, outbound }: { message: Message; outbound: boolean }) {
+	const { t } = useI18n()
+
+	if (message.type !== "interactive" && message.type !== "button") return null
+
+	const payload = message.payload ?? {}
+
+	const title = payload.button_reply?.title ?? payload.list_reply?.title ?? null
+
+	if (!title) return null
+
+	return (
+		<p
+			className={cn(
+				"mb-1 flex items-center gap-1 text-[11px] font-medium opacity-80",
+				outbound ? "text-white" : "text-ink-500"
+			)}>
+			<MousePointerClick className='h-3 w-3' aria-hidden='true' />
+			{t("chat.rich.tapped")}
+		</p>
 	)
 }
 
@@ -847,7 +1074,11 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 
 										<MessageMedia message={message} outbound={outbound} />
 
-										{message.text || (!message.mediaId && !message.filename) ? (
+										<MessageTapHint message={message} outbound={outbound} />
+
+										{RICH_TYPES.has(message.type) ? (
+											<MessageRichContent message={message} outbound={outbound} />
+										) : message.text || (!message.mediaId && !message.filename) ? (
 											<p dir={textDirOf(message.text)} className='whitespace-pre-wrap break-words'>
 												{message.text ?? `[${message.type}]`}
 											</p>
