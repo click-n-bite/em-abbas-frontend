@@ -331,7 +331,7 @@ function MessageRichContent({ message, outbound }: { message: Message; outbound:
 		const sections = Array.isArray(payload.sections) ? payload.sections : []
 
 		return (
-			<div className='mb-1'>
+			<div className='mb-1' dir={textDirOf(message.text)}>
 				<RichBody message={message} />
 
 				<RichPanel outbound={outbound}>
@@ -340,7 +340,7 @@ function MessageRichContent({ message, outbound }: { message: Message; outbound:
 					) : null}
 
 					{sections.map((section, sectionIndex) => (
-						<div key={`${section.title ?? "section"}-${sectionIndex}`} className='mb-2 last:mb-0'>
+						<div  dir={textDirOf(message.text)} key={`${section.title ?? "section"}-${sectionIndex}`} className='mb-2 last:mb-0'>
 							{section.title ? <p className='mb-1 text-[11px] font-semibold opacity-70'>{section.title}</p> : null}
 
 							<ul className='list-disc ps-4'>
