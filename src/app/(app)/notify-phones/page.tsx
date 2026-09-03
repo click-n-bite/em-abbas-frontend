@@ -197,7 +197,9 @@ export default function NotifyPhonesPage() {
 									<span
 										className={cn(
 											"absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-											entry.notificationsEnabled ? "translate-x-[1.375rem] rtl:-translate-x-[1.375rem]" : "translate-x-0.5"
+											entry.notificationsEnabled
+												? "translate-x-[0rem] rtl:translate-x-[1.35rem]"
+												: "-translate-x-4 rtl:-translate-x-0"
 										)}
 									/>
 									{busyToggleId === entry.id ? (
