@@ -19,6 +19,9 @@ export interface Conversation {
 	lastMessageSource?: "customer" | "bot" | "agent" | null
 	unreadCount?: number
 	lastReadAt?: string | null
+	/** Open-chat only (GET /conversations/{id}, takeover, hand-back, mark-read). Not on inbox list rows. */
+	blocked?: boolean
+	whatsappStatus?: "blocked" | "failed" | "pending" | "unblocked" | null
 }
 
 export type MessageType =

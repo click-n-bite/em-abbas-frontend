@@ -39,6 +39,7 @@ const ar: Dictionary = {
 		notifications: "الإشعارات",
 		users: "المستخدمون",
 		blacklist: "الدول المحجوبة",
+		blockedNumbers: "الأرقام المحجوبة",
 		notifyPhones: "أرقام الإشعارات",
 		logs: "السجلات",
 		settings: "الإعدادات",
@@ -137,7 +138,22 @@ const ar: Dictionary = {
 			contact: "جهة اتصال",
 			flowCta: "فتح النموذج",
 			tapped: "تم النقر"
-		}
+		},
+		moreActions: "المزيد من الإجراءات",
+		blockContact: "حجب جهة الاتصال",
+		contactAlreadyBlocked: "جهة الاتصال محجوبة بالفعل",
+		blockedContact: "تم حجب الرقم.",
+		blockedBadge: "محجوب",
+		blockedBadgeLocalOnly: "محجوب هنا فقط",
+		blockedBadgePending: "جارٍ الحجب…",
+		blockedBadgeHint: "رقم واتساب هذا مدرج في قائمة الحجب.",
+		inputLockedBlocked: "هذا الرقم محجوب. ألغِ الحجب من صفحة الأرقام المحجوبة للرد.",
+		clearMessages: "مسح الرسائل",
+		clearMessagesBody: "يمسح هذا سجل الرسائل المعروض في المنصة، ولا يمكن التراجع عنه.",
+		messagesCleared: "تم مسح الرسائل.",
+		deleteConversation: "حذف المحادثة",
+		deleteConversationBody: "سيؤدي هذا إلى حذف المحادثة وسجلّها نهائياً، ولا يمكن التراجع عنه.",
+		conversationDeleted: "تم حذف المحادثة."
 	},
 	mode: { bot: "الذكاء الاصطناعي", waiting: "بانتطار", agent: "موظف" },
 	notifications: {
@@ -205,6 +221,32 @@ const ar: Dictionary = {
 		invalid: "رقم غير صالح",
 		forbidden: "تعديل القائمة متاح للمدير الأعلى والمدير فقط."
 	},
+	blockedNumbers: {
+		title: "الأرقام المحجوبة",
+		subtitle: "أرقام واتساب المحجوبة محلياً، وعلى واتساب نفسه متى أمكن ذلك.",
+		listTitle: "الأرقام المحجوبة",
+		empty: "لا يوجد رقم مطابق لهذا الفلتر.",
+		addTitle: "حجب رقم واتساب",
+		addSubtitle: "يُحجب الرقم هنا فوراً، ويُحدَّث واتساب في الخلفية.",
+		phone: "رقم واتساب",
+		reason: "السبب",
+		reasonPlaceholder: "إزعاج، تحرش…",
+		block: "حجب الرقم",
+		blocking: "جارٍ الحجب…",
+		blocked: "محجوب",
+		unblock: "إلغاء الحجب",
+		unblocked: "تم إلغاء حجب الرقم.",
+		searchPlaceholder: "ابحث برقم الهاتف…",
+		updatedAt: "آخر تحديث",
+		forbidden: "إدارة الأرقام المحجوبة متاحة للمدير الأعلى والمدير فقط.",
+		filters: { blocked: "محجوب", unblocked: "غير محجوب", all: "الكل" },
+		status: {
+			blocked: "محجوب على واتساب",
+			failed: "محجوب هنا فقط",
+			pending: "جارٍ الحجب…",
+			unblocked: "غير محجوب"
+		}
+	},
 	notifyPhones: {
 		title: "أرقام الإشعارات",
 		subtitle: "أرقام واتساب التي قد تستقبل تنبيهات من المنصة.",
@@ -263,7 +305,8 @@ const ar: Dictionary = {
 		NOT_ASSIGNEE: "هذه المحادثة تابعة لموظف آخر.",
 		ALREADY_CLAIMED: "موظف آخر تولّى هذه المحادثة بالفعل.",
 		MODE_NOT_BOT: "المحادثة ليست في وضع الذكاء الاصطناعي.",
-		INVALID_CREDENTIALS: "اسم المستخدم أو كلمة المرور غير صحيحة."
+		INVALID_CREDENTIALS: "اسم المستخدم أو كلمة المرور غير صحيحة.",
+		NUMBER_BLOCKED: "هذا الرقم محجوب."
 	},
 	settings: {
 		title: "الإعدادات",

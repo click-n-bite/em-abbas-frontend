@@ -8,7 +8,7 @@ import { useNotifications } from "@/providers/notifications-provider"
 import { AppShell } from "@/components/layout/app-shell"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ModeBadge } from "@/components/ui/badges"
-import { cn } from "@/lib/utils"
+import { cn, textDirOf } from "@/lib/utils"
 
 export default function NotificationsPage() {
 	const { t, formatDateTime, formatRelative } = useI18n()
@@ -79,12 +79,20 @@ export default function NotificationsPage() {
 										{!item.read ? (
 											<span className='h-2 w-2 shrink-0 rounded-full bg-brand-500' aria-hidden='true' />
 										) : null}
-										<p className='text-sm font-medium text-ink-900 dark:text-ink-50'>{item.title}</p>
+										<p dir={textDirOf(item.title)} className='text-sm font-medium text-ink-900 dark:text-ink-50'>
+											{item.title}
+										</p>
 										{item.mode ? <ModeBadge mode={item.mode} /> : null}
 									</div>
-									{item.body ? <p className='mt-1 text-sm text-ink-600 dark:text-ink-300'>{item.body}</p> : null}
+									{item.body ? (
+										<p dir={textDirOf(item.body)} className='mt-1 text-sm text-ink-600 dark:text-ink-300'>
+											{item.body}
+										</p>
+									) : null}
 									{item.preview ? (
-										<p className='mt-1 truncate text-xs text-ink-500 dark:text-ink-400'>{item.preview}</p>
+										<p dir={textDirOf(item.preview)} className='mt-1 truncate text-xs text-ink-500 dark:text-ink-400'>
+											{item.preview}
+										</p>
 									) : null}
 									<p className='mt-1.5 text-[11px] text-ink-400' title={formatDateTime(item.createdAt)}>
 										{formatRelative(item.createdAt)}

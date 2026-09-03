@@ -87,5 +87,22 @@ export const conversationsApi = {
 		})
 
 		return unwrapItem<Conversation>(payload, "conversation")
+	},
+
+	/**
+	 * Not documented in CHAT-FRONTEND-API.md — the doc has no delete-conversation
+	 * route. This assumes a conventional `DELETE /conversations/{id}`. Confirm the
+	 * real path with backend before relying on this in production.
+	 */
+	async remove(id: string): Promise<void> {
+		await request<void>(`/conversations/${id}`, { method: "DELETE" })
+	},
+
+	/**
+	 * Also not documented. Assumes `DELETE /conversations/{id}/messages` clears the
+	 * thread but keeps the conversation row. Confirm the real path with backend.
+	 */
+	async clearMessages(id: string): Promise<void> {
+		await request<void>(`/conversations/${id}/messages`, { method: "DELETE" })
 	}
 }

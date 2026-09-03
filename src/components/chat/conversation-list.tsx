@@ -6,9 +6,8 @@ import { useAuth } from "@/providers/auth-provider"
 import { Avatar } from "@/components/ui/avatar"
 import { ModeBadge } from "@/components/ui/badges"
 import { EmptyState } from "@/components/ui/empty-state"
-import { cn } from "@/lib/utils"
+import { cn, textDirOf } from "@/lib/utils"
 import type { Conversation } from "@/lib/types"
-import { textDirOf } from "./chat-panel"
 
 export type InboxFilter = "all" | "bot" | "mine"
 
@@ -116,6 +115,7 @@ export function ConversationList({
 										<span className='min-w-0 flex-1'>
 											<span className='flex items-baseline justify-between gap-2'>
 												<span
+													dir={textDirOf(name)}
 													className={cn(
 														"truncate text-sm text-ink-900 dark:text-ink-50",
 														unread > 0 ? "font-semibold" : "font-medium"

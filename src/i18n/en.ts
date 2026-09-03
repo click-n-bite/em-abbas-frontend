@@ -37,6 +37,7 @@ const en = {
 		notifications: "Notifications",
 		users: "Users",
 		blacklist: "Blocked countries",
+		blockedNumbers: "Blocked numbers",
 		notifyPhones: "Notification numbers",
 		logs: "Logs",
 		settings: "Settings",
@@ -135,7 +136,22 @@ const en = {
 			contact: "Contact",
 			flowCta: "Open form",
 			tapped: "Tapped"
-		}
+		},
+		moreActions: "More actions",
+		blockContact: "Block this contact",
+		contactAlreadyBlocked: "Contact already blocked",
+		blockedContact: "Number blocked.",
+		blockedBadge: "Blocked",
+		blockedBadgeLocalOnly: "Blocked here only",
+		blockedBadgePending: "Blocking…",
+		blockedBadgeHint: "This WhatsApp number is on the block list.",
+		inputLockedBlocked: "This number is blocked. Unblock it from Blocked numbers to reply.",
+		clearMessages: "Clear messages",
+		clearMessagesBody: "This clears the message thread shown in the portal. This cannot be undone.",
+		messagesCleared: "Messages cleared.",
+		deleteConversation: "Delete conversation",
+		deleteConversationBody: "This permanently deletes the conversation and its history. This cannot be undone.",
+		conversationDeleted: "Conversation deleted."
 	},
 	mode: { bot: "AI", waiting: "Waiting", agent: "Agent" },
 	notifications: {
@@ -203,6 +219,32 @@ const en = {
 		invalid: "Not a valid number",
 		forbidden: "Only super admins and admins can change this list."
 	},
+	blockedNumbers: {
+		title: "Blocked numbers",
+		subtitle: "WhatsApp numbers blocked locally and, when possible, on WhatsApp itself.",
+		listTitle: "Blocked numbers",
+		empty: "No number matches this filter.",
+		addTitle: "Block a WhatsApp number",
+		addSubtitle: "The number is blocked here immediately. WhatsApp is updated in the background.",
+		phone: "WhatsApp number",
+		reason: "Reason",
+		reasonPlaceholder: "Spam, harassment…",
+		block: "Block number",
+		blocking: "Blocking…",
+		blocked: "Blocked",
+		unblock: "Unblock",
+		unblocked: "Number unblocked.",
+		searchPlaceholder: "Search by phone…",
+		updatedAt: "Updated",
+		forbidden: "Only super admins and admins can manage blocked numbers.",
+		filters: { blocked: "Blocked", unblocked: "Unblocked", all: "All" },
+		status: {
+			blocked: "Blocked on WhatsApp",
+			failed: "Blocked here only",
+			pending: "Blocking…",
+			unblocked: "Unblocked"
+		}
+	},
 	notifyPhones: {
 		title: "Notification numbers",
 		subtitle: "WhatsApp numbers that may receive portal alerts.",
@@ -261,7 +303,8 @@ const en = {
 		NOT_ASSIGNEE: "This conversation belongs to another agent.",
 		ALREADY_CLAIMED: "Another agent already claimed this conversation.",
 		MODE_NOT_BOT: "The conversation is not in AI mode.",
-		INVALID_CREDENTIALS: "Wrong username or password."
+		INVALID_CREDENTIALS: "Wrong username or password.",
+		NUMBER_BLOCKED: "This number is blocked."
 	},
 	settings: {
 		title: "Settings",

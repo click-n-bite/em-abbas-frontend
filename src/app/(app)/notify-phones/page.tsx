@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { Spinner } from "@/components/ui/spinner"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { NotifyPhoneFormModal } from "@/components/notify-phones/notify-phone-form-modal"
-import { cn } from "@/lib/utils"
+import { cn, textDirOf } from "@/lib/utils"
 import type { NotifyPhone } from "@/lib/types"
 import type { CreateNotifyPhonePayload, UpdateNotifyPhonePayload } from "@/lib/api"
 
@@ -169,7 +169,7 @@ export default function NotifyPhonesPage() {
 									📱
 								</span>
 								<div className='min-w-0 flex-1'>
-									<p className='truncate text-sm font-medium text-ink-900 dark:text-ink-50'>
+									<p dir={textDirOf(entry.name)} className='truncate text-sm font-medium text-ink-900 dark:text-ink-50'>
 										{entry.name}
 										<span className='ms-2 font-normal text-ink-500 dark:text-ink-400' dir='ltr'>
 											+{entry.phoneNumber}

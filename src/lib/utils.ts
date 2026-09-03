@@ -40,3 +40,16 @@ export function isYesterday(iso: string): boolean {
 
 	return dayKey(iso) === yesterday
 }
+
+const ARABIC_CHAR_PATTERN = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/
+
+/**
+ * Direction for free-form text (customer names, message bodies, notification
+ * titles, reasons, …) so Arabic content is right-aligned and reads
+ * right-to-left even inside an otherwise left-to-right (English) page, and
+ * vice versa. Pass this to a `dir` prop, not the whole-page `dir` from
+ * useI18n() — that one is for the UI chrome, this one is for the content.
+ */
+export function textDirOf(text: string | null | undefined): "rtl" | "auto" {
+	return text && ARABIC_CHAR_PATTERN.test(text) ? "rtl" : "auto"
+}

@@ -166,6 +166,13 @@ export default function ConversationsPage() {
 
 	activeIdRef.current = activeId
 
+	const onConversationDeleted = useCallback((id: string) => {
+		setConversations((current) => current.filter((conversation) => conversation.id !== id))
+		setDetached((current) => (current && current.id === id ? null : current))
+
+		if (activeIdRef.current === id) setActiveId(null)
+	}, [])
+
 	const filterRef = useRef(filter)
 
 	filterRef.current = filter
@@ -323,6 +330,7 @@ export default function ConversationsPage() {
 					<ChatPanel
 						conversation={selected}
 						onConversationChange={onConversationChange}
+						onConversationDeleted={onConversationDeleted}
 						onBack={() => setActiveId(null)}
 					/>
 				</div>

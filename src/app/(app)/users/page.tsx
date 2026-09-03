@@ -13,7 +13,7 @@ import { RoleBadge, StatusDot } from "@/components/ui/badges"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { UserFormModal } from "@/components/users/user-form-modal"
-import { cn } from "@/lib/utils"
+import { cn, textDirOf } from "@/lib/utils"
 import type { PortalUser } from "@/lib/types"
 
 export default function UsersPage() {
@@ -198,7 +198,11 @@ export default function UsersPage() {
 												<div className='flex items-center gap-3'>
 													<Avatar name={user.displayName} seed={user.username} size='sm' />
 													<div className='min-w-0'>
-														<p className='truncate font-medium text-ink-900 dark:text-ink-50'>{user.displayName}</p>
+														<p
+															dir={textDirOf(user.displayName)}
+															className='truncate font-medium text-ink-900 dark:text-ink-50'>
+															{user.displayName}
+														</p>
 														<p dir='ltr' className='truncate text-xs text-ink-500 dark:text-ink-400'>
 															{user.username}
 														</p>
@@ -249,7 +253,11 @@ export default function UsersPage() {
 									<div className='flex items-start gap-3'>
 										<Avatar name={user.displayName} seed={user.username} size='sm' />
 										<div className='min-w-0 flex-1'>
-											<p className='truncate text-sm font-medium text-ink-900 dark:text-ink-50'>{user.displayName}</p>
+											<p
+												dir={textDirOf(user.displayName)}
+												className='truncate text-sm font-medium text-ink-900 dark:text-ink-50'>
+												{user.displayName}
+											</p>
 											<p dir='ltr' className='truncate text-xs text-ink-500 dark:text-ink-400'>
 												{user.username}
 											</p>

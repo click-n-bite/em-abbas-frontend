@@ -1,4 +1,4 @@
-import { Activity, Ban, Bell, LayoutDashboard, MessageSquare, Settings, Smartphone, Users } from "lucide-react"
+import { Ban, Bell, LayoutDashboard, MessageSquare, PhoneOff, Settings, Smartphone, Users } from "lucide-react"
 import type { Role } from "@/lib/types"
 
 export interface NavItem {
@@ -14,6 +14,12 @@ export const navItems: NavItem[] = [
 	{ href: "/notifications", labelKey: "nav.notifications", icon: Bell },
 	{ href: "/users", labelKey: "nav.users", icon: Users, roles: ["superadmin", "admin"] },
 	{ href: "/blacklist", labelKey: "nav.blacklist", icon: Ban, roles: ["superadmin", "admin"] },
+	{
+		href: "/blocked-numbers",
+		labelKey: "nav.blockedNumbers",
+		icon: PhoneOff,
+		roles: ["superadmin", "admin"]
+	},
 	{
 		href: "/notify-phones",
 		labelKey: "nav.notifyPhones",

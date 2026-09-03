@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Bell, LogOut, Moon, PlayCircle, Sun, Volume2, VolumeX } from "lucide-react"
+import { Bell, Check, LogOut, Moon, PlayCircle, Sun, Volume2, VolumeX } from "lucide-react"
 import { useAuth } from "@/providers/auth-provider"
 import { useI18n } from "@/providers/i18n-provider"
 import { useTheme } from "@/providers/theme-provider"
@@ -132,7 +132,7 @@ export default function SettingsPage() {
 						className={cn(
 							"mt-4 flex items-center gap-3 rounded-2xl border p-3.5 transition-colors",
 							soundOn
-								? "border-brand-200 bg-brand-50/60 dark:border-brand-900 dark:bg-brand-950/40"
+								? "dark:bg-brand-950/40 border-brand-200 bg-brand-50/60 dark:border-brand-900"
 								: "border-ink-200 dark:border-ink-700"
 						)}>
 						<span
@@ -157,7 +157,7 @@ export default function SettingsPage() {
 										key={bar}
 										className={cn(
 											"w-1 rounded-full transition-all duration-300",
-											soundOn ? "bg-brand-500 animate-pulse" : "h-1 bg-ink-300 dark:bg-ink-600"
+											soundOn ? "animate-pulse bg-brand-500" : "h-1 bg-ink-300 dark:bg-ink-600"
 										)}
 										style={
 											soundOn
@@ -193,15 +193,21 @@ export default function SettingsPage() {
 							aria-checked={soundOn}
 							aria-label={t("settings.messageSound")}
 							className={cn(
-								"relative h-6 w-11 shrink-0 rounded-full transition-colors",
-								soundOn ? "bg-brand-600" : "bg-ink-300 dark:bg-ink-600"
+								"relative h-6 w-11 shrink-0 rounded-full transition-all duration-300 ease-out",
+								"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-ink-800",
+								soundOn
+									? "bg-gradient-to-r from-brand-500 to-brand-600 shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]"
+									: "bg-ink-200 shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] dark:bg-ink-600"
 							)}>
 							<span
 								className={cn(
-									"absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-									soundOn ? "translate-x-[1.375rem] rtl:-translate-x-[1.375rem]" : "translate-x-0.5"
-								)}
-							/>
+									"absolute top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-black/5 transition-all duration-300 ease-out",
+									soundOn
+										? "translate-x-[1.375rem] text-brand-600 rtl:-translate-x-[1.375rem]"
+										: "translate-x-0.5 text-transparent"
+								)}>
+								<Check className='h-3 w-3 transition-opacity duration-200' aria-hidden='true' />
+							</span>
 						</button>
 					</div>
 				</section>

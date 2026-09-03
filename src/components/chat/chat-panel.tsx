@@ -5,12 +5,14 @@ import {
 	AlertCircle,
 	ArrowLeft,
 	ArrowRight,
+	Ban,
 	Bot,
 	Check,
 	CheckCheck,
 	Clock,
 	Contact,
 	Download,
+	Eraser,
 	ExternalLink,
 	FileText,
 	Headphones,
@@ -19,18 +21,20 @@ import {
 	MapPin,
 	Mic,
 	MessageSquare,
+	MoreVertical,
 	MousePointerClick,
 	Paperclip,
 	Send,
 	SendHorizontal,
+	ShieldOff,
 	Trash2,
 	Undo2,
 	UserRound,
 	Workflow
 } from "lucide-react"
-import { api } from "@/lib/api"
-import { errorKey } from "@/lib/errors"
-import { cn, colorFromString, isToday, isYesterday, uuid } from "@/lib/utils"
+import { adminApi, api } from "@/lib/api"
+import { errorDetail, errorKey } from "@/lib/errors"
+import { cn, colorFromString, isToday, isYesterday, textDirOf, uuid } from "@/lib/utils"
 import { useI18n } from "@/providers/i18n-provider"
 import { useAuth } from "@/providers/auth-provider"
 import { useToast } from "@/providers/toast-provider"
@@ -38,6 +42,8 @@ import { Avatar } from "@/components/ui/avatar"
 import { ModeBadge } from "@/components/ui/badges"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Spinner } from "@/components/ui/spinner"
+import { ConfirmDialog } from "@/components/confirm-dialog"
+import { BlockNumberFormModal } from "@/components/blocked-numbers/block-number-form-modal"
 import { useRealtime, type ConnectionState } from "@/hooks/use-realtime"
 import type { Conversation, Message, RealtimeEvent } from "@/lib/types"
 import { WhatsAppAudioPlayer } from "./audio-player"
@@ -46,6 +52,8 @@ interface Props {
 	conversation: Conversation | null
 	onConversationChange: (conversation: Conversation) => void
 	onBack?: () => void
+	/** Fired after the conversation is deleted, so the parent can drop it from the inbox list. */
+	onConversationDeleted?: (id: string) => void
 }
 
 function statusIcon(status: Message["status"]) {
@@ -68,12 +76,6 @@ function agentKeyOf(message: Message): string | null {
 	const key = message.agentId ?? message.agentName ?? null
 
 	return key && key.trim() ? key.trim() : null
-}
-
-const ARABIC_CHAR_PATTERN = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/
-
-export function textDirOf(text: string | null): "rtl" | "auto" {
-	return text && ARABIC_CHAR_PATTERN.test(text) ? "rtl" : "auto"
 }
 
 function mergeMessages(current: Message[], incoming: Message[]): Message[] {
@@ -485,10 +487,10 @@ function MessageTapHint({ message, outbound }: { message: Message; outbound: boo
 	)
 }
 
-export function ChatPanel({ conversation, onConversationChange, onBack }: Props) {
+export function ChatPanel({ conversation, onConversationChange, onBack, onConversationDeleted }: Props) {
 	const { t, formatTime, formatDateTime, dir } = useI18n()
 
-	const { agent } = useAuth()
+	const { agent, canManageUsers } = useAuth()
 
 	const { push } = useToast()
 
@@ -503,6 +505,16 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 	const [sending, setSending] = useState(false)
 
 	const [modeBusy, setModeBusy] = useState(false)
+
+	const [menuOpen, setMenuOpen] = useState(false)
+
+	const [blockModalOpen, setBlockModalOpen] = useState(false)
+
+	const [pendingDelete, setPendingDelete] = useState(false)
+
+	const [pendingClear, setPendingClear] = useState(false)
+
+	const menuRef = useRef<HTMLDivElement>(null)
 
 	const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -542,6 +554,34 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 			if (markReadTimer.current) window.clearTimeout(markReadTimer.current)
 		}
 	}, [conversationId])
+
+	// Close the header's "more actions" menu (and any pending confirmations) whenever the open thread changes.
+	useEffect(() => {
+		setMenuOpen(false)
+		setBlockModalOpen(false)
+		setPendingDelete(false)
+		setPendingClear(false)
+	}, [conversationId])
+
+	useEffect(() => {
+		if (!menuOpen) return
+
+		const onPointerDown = (event: MouseEvent) => {
+			if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false)
+		}
+
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") setMenuOpen(false)
+		}
+
+		document.addEventListener("mousedown", onPointerDown)
+		document.addEventListener("keydown", onKeyDown)
+
+		return () => {
+			document.removeEventListener("mousedown", onPointerDown)
+			document.removeEventListener("keydown", onKeyDown)
+		}
+	}, [menuOpen])
 
 	useEffect(() => {
 		if (!conversationId) {
@@ -625,6 +665,18 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 					mode: (event.mode as Conversation["mode"]) ?? current.mode,
 					assigneeId: (event.assigneeId as string | null | undefined) ?? null
 				})
+
+				return
+			}
+
+			if (event.event === "conversation.blocked") {
+				if (event.conversationId !== current.id) return
+
+				onConversationChangeRef.current({
+					...current,
+					blocked: Boolean(event.blocked),
+					whatsappStatus: (event.whatsappStatus as Conversation["whatsappStatus"]) ?? null
+				})
 			}
 		},
 		[scrollToEnd, scheduleMarkRead]
@@ -643,16 +695,20 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 
 	const mine = Boolean(conversation?.assigneeId && conversation.assigneeId === agent?.id)
 
-	const canReply = conversation?.mode === "agent" && mine
+	const blocked = Boolean(conversation?.blocked)
+
+	const canReply = conversation?.mode === "agent" && mine && !blocked
 
 	const lockedReason =
 		conversation == null
 			? null
-			: conversation.mode !== "agent"
-				? t("chat.inputLockedBot")
-				: !mine
-					? t("chat.inputLockedOther")
-					: null
+			: blocked
+				? t("chat.inputLockedBlocked")
+				: conversation.mode !== "agent"
+					? t("chat.inputLockedBot")
+					: !mine
+						? t("chat.inputLockedOther")
+						: null
 
 	const [uploading, setUploading] = useState(false)
 
@@ -937,6 +993,54 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 		}
 	}
 
+	const submitBlock = async ({ phone, reason }: { phone: string; reason?: string | null }) => {
+		if (!conversation) return
+
+		try {
+			await adminApi.blockNumber({ phone, reason })
+
+			// Optimistic: the local block always applies immediately server-side.
+			// The real whatsappStatus (blocked/failed) arrives via the
+			// conversation.blocked STOMP event a few seconds later.
+			onConversationChange({ ...conversation, blocked: true, whatsappStatus: "pending" })
+			push(t("chat.blockedContact"), "success")
+			setBlockModalOpen(false)
+			setMenuOpen(false)
+		} catch (error) {
+			push(errorDetail(error) ?? t(errorKey(error)), "error")
+		}
+	}
+
+	const confirmDelete = async () => {
+		if (!conversationId) return
+
+		try {
+			await api.deleteConversation(conversationId)
+			push(t("chat.conversationDeleted"), "success")
+			onConversationDeleted?.(conversationId)
+			onBack?.()
+		} catch (error) {
+			push(errorDetail(error) ?? t(errorKey(error)), "error")
+		} finally {
+			setMenuOpen(false)
+		}
+	}
+
+	const confirmClear = async () => {
+		if (!conversationId || !conversation) return
+
+		try {
+			await api.clearConversationMessages(conversationId)
+			setMessages([])
+			onConversationChange({ ...conversation, preview: null, lastMessageId: null })
+			push(t("chat.messagesCleared"), "success")
+		} catch (error) {
+			push(errorDetail(error) ?? t(errorKey(error)), "error")
+		} finally {
+			setMenuOpen(false)
+		}
+	}
+
 	if (!conversation) {
 		return (
 			<div className='flex h-full items-center justify-center'>
@@ -967,7 +1071,9 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 					) : null}
 					<Avatar name={conversation.customerName} seed={conversation.phone} />
 					<div className='min-w-0 flex-1'>
-						<p dir='auto' className='truncate text-sm font-semibold text-ink-900 dark:text-ink-50'>
+						<p
+							dir={textDirOf(conversation.customerName)}
+							className='truncate text-sm font-semibold text-ink-900 dark:text-ink-50'>
 							{conversation.customerName?.trim() || conversation.phone}
 						</p>
 						<p className='truncate text-xs text-ink-500 dark:text-ink-400' dir='ltr'>
@@ -978,6 +1084,29 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 
 				<div className='flex flex-wrap items-center gap-2 ps-1 lg:ms-auto lg:flex-nowrap lg:ps-0'>
 					<ModeBadge mode={conversation.mode} />
+
+					{blocked ? (
+						<span
+							className={cn(
+								"badge",
+								conversation.whatsappStatus === "blocked" &&
+									"bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-200",
+								conversation.whatsappStatus === "failed" &&
+									"bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-200",
+								(conversation.whatsappStatus === "pending" || !conversation.whatsappStatus) &&
+									"bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-200"
+							)}
+							title={t("chat.blockedBadgeHint")}>
+							<ShieldOff className='h-3 w-3' aria-hidden='true' />
+							{t(
+								conversation.whatsappStatus === "blocked"
+									? "chat.blockedBadge"
+									: conversation.whatsappStatus === "failed"
+										? "chat.blockedBadgeLocalOnly"
+										: "chat.blockedBadgePending"
+							)}
+						</span>
+					) : null}
 
 					{connectionState !== "connected" ? (
 						<span
@@ -998,6 +1127,64 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 							{modeBusy ? <Spinner /> : <Headphones className='h-4 w-4' aria-hidden='true' />}
 							{modeBusy ? t("chat.takingOver") : t("chat.takeover")}
 						</button>
+					) : null}
+
+					{canManageUsers ? (
+						<div ref={menuRef} className='relative'>
+							<button
+								type='button'
+								className='btn-secondary px-2.5'
+								onClick={() => setMenuOpen((value) => !value)}
+								aria-haspopup='menu'
+								aria-expanded={menuOpen}
+								aria-label={t("chat.moreActions")}
+								title={t("chat.moreActions")}>
+								<MoreVertical className='h-4 w-4' aria-hidden='true' />
+							</button>
+
+							{menuOpen ? (
+								<div
+									role='menu'
+									className='absolute end-0 z-20 mt-2 w-56 overflow-hidden rounded-xl border border-ink-200 bg-white py-1 shadow-lg dark:border-ink-700 dark:bg-ink-800'>
+									<button
+										type='button'
+										role='menuitem'
+										disabled={blocked}
+										onClick={() => {
+											setBlockModalOpen(true)
+											setMenuOpen(false)
+										}}
+										className='flex w-full items-center gap-2 px-3 py-2 text-start text-sm text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-ink-200 dark:hover:bg-ink-700'>
+										<Ban className='h-4 w-4' aria-hidden='true' />
+										{blocked ? t("chat.contactAlreadyBlocked") : t("chat.blockContact")}
+									</button>
+
+									<button
+										type='button'
+										role='menuitem'
+										onClick={() => {
+											setPendingClear(true)
+											setMenuOpen(false)
+										}}
+										className='flex w-full items-center gap-2 px-3 py-2 text-start text-sm text-ink-700 transition hover:bg-ink-50 dark:text-ink-200 dark:hover:bg-ink-700'>
+										<Eraser className='h-4 w-4' aria-hidden='true' />
+										{t("chat.clearMessages")}
+									</button>
+
+									<button
+										type='button'
+										role='menuitem'
+										onClick={() => {
+											setPendingDelete(true)
+											setMenuOpen(false)
+										}}
+										className='flex w-full items-center gap-2 px-3 py-2 text-start text-sm text-rose-600 transition hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950'>
+										<Trash2 className='h-4 w-4' aria-hidden='true' />
+										{t("chat.deleteConversation")}
+									</button>
+								</div>
+							) : null}
+						</div>
 					) : null}
 				</div>
 			</header>
@@ -1208,6 +1395,33 @@ export function ChatPanel({ conversation, onConversationChange, onBack }: Props)
 				)}
 				{lockedReason || recording ? null : <p className='mt-1.5 text-[11px] text-ink-400'>{t("chat.typingHint")}</p>}
 			</footer>
+
+			<BlockNumberFormModal
+				open={blockModalOpen}
+				initialPhone={conversation.phone}
+				onClose={() => setBlockModalOpen(false)}
+				onSubmit={submitBlock}
+			/>
+
+			<ConfirmDialog
+				open={pendingClear}
+				title={t("chat.clearMessages")}
+				body={t("chat.clearMessagesBody")}
+				confirmLabel={t("chat.clearMessages")}
+				tone='danger'
+				onConfirm={confirmClear}
+				onClose={() => setPendingClear(false)}
+			/>
+
+			<ConfirmDialog
+				open={pendingDelete}
+				title={t("chat.deleteConversation")}
+				body={t("chat.deleteConversationBody")}
+				confirmLabel={t("chat.deleteConversation")}
+				tone='danger'
+				onConfirm={confirmDelete}
+				onClose={() => setPendingDelete(false)}
+			/>
 		</div>
 	)
 }
