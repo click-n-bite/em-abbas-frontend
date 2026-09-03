@@ -1,17 +1,19 @@
 "use client"
 
-import { Inbox, Search } from "lucide-react"
+import { useState } from "react"
+import { Eye, EyeOff, Inbox, Search } from "lucide-react"
 import { useI18n } from "@/providers/i18n-provider"
 import { useAuth } from "@/providers/auth-provider"
 import { Avatar } from "@/components/ui/avatar"
 import { ModeBadge } from "@/components/ui/badges"
 import { EmptyState } from "@/components/ui/empty-state"
+import { Spinner } from "@/components/ui/spinner"
 import { cn, textDirOf } from "@/lib/utils"
 import type { Conversation } from "@/lib/types"
 
-export type InboxFilter = "all" | "bot" | "mine"
+export type InboxFilter = "all" | "bot" | "mine" | "hidden"
 
-const filters: InboxFilter[] = ["all", "bot", "mine"]
+const filters: InboxFilter[] = ["all", "bot", "mine", "hidden"]
 
 interface Props {
 	conversations: Conversation[]
@@ -22,6 +24,9 @@ interface Props {
 	onSelect: (id: string) => void
 	onFilterChange: (filter: InboxFilter) => void
 	onSearchChange: (value: string) => void
+	onToggleHide?: (id: string, hide: boolean) => void | Promise<void>
+	onClearHidden?: () => void | Promise<void>
+	clearingHidden?: boolean
 }
 
 export function ConversationList({
@@ -32,11 +37,26 @@ export function ConversationList({
 	loading,
 	onSelect,
 	onFilterChange,
-	onSearchChange
+	onSearchChange,
+	onToggleHide
 }: Props) {
 	const { t, formatRelative } = useI18n()
 
 	const { agent } = useAuth()
+
+	const [busyId, setBusyId] = useState<string | null>(null)
+
+	const toggleHide = async (id: string, hide: boolean) => {
+		if (!onToggleHide) return
+
+		setBusyId(id)
+
+		try {
+			await onToggleHide(id, hide)
+		} finally {
+			setBusyId((current) => (current === id ? null : current))
+		}
+	}
 
 	return (
 		<div className='flex h-full min-h-0 flex-col'>
@@ -89,7 +109,10 @@ export function ConversationList({
 						))}
 					</ul>
 				) : conversations.length === 0 ? (
-					<EmptyState icon={<Inbox className='h-5 w-5' aria-hidden='true' />} title={t("inbox.empty")} />
+					<EmptyState
+						icon={<Inbox className='h-5 w-5' aria-hidden='true' />}
+						title={t(filter === "hidden" ? "inbox.hiddenEmpty" : "inbox.empty")}
+					/>
 				) : (
 					<ul className='h-[100px] divide-y divide-ink-100 dark:divide-ink-700/70 md:h-full'>
 						{conversations.map((conversation) => {
@@ -102,13 +125,14 @@ export function ConversationList({
 							const unread = conversation.unreadCount ?? 0
 
 							return (
-								<li key={conversation.id}>
+								<li key={conversation.id} className='group relative'>
 									<button
 										type='button'
 										onClick={() => onSelect(conversation.id)}
 										aria-current={active ? "true" : undefined}
 										className={cn(
 											"flex w-full items-start gap-3 p-3 text-start transition",
+											onToggleHide && "pe-11",
 											active ? "bg-brand-50 dark:bg-brand-900/30" : "hover:bg-ink-50 dark:hover:bg-ink-700/50"
 										)}>
 										<Avatar name={conversation.customerName} seed={conversation.phone} />
@@ -157,6 +181,32 @@ export function ConversationList({
 											</span>
 										</span>
 									</button>
+
+									{onToggleHide ? (
+										<button
+											type='button'
+											onClick={(event) => {
+												event.stopPropagation()
+												void toggleHide(conversation.id, filter !== "hidden")
+											}}
+											disabled={busyId === conversation.id}
+											title={t(filter === "hidden" ? "inbox.unhideConversation" : "inbox.hideConversation")}
+											aria-label={t(filter === "hidden" ? "inbox.unhideConversation" : "inbox.hideConversation")}
+											className={cn(
+												"absolute end-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-ink-400 transition hover:bg-ink-100 hover:text-ink-700 dark:hover:bg-ink-700 dark:hover:text-ink-100",
+												filter === "hidden"
+													? "opacity-100"
+													: "opacity-0 focus-visible:opacity-100 group-hover:opacity-100"
+											)}>
+											{busyId === conversation.id ? (
+												<Spinner />
+											) : filter === "hidden" ? (
+												<Eye className='h-4 w-4' aria-hidden='true' />
+											) : (
+												<EyeOff className='h-4 w-4' aria-hidden='true' />
+											)}
+										</button>
+									) : null}
 								</li>
 							)
 						})}

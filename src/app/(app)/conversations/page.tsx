@@ -15,7 +15,7 @@ import { ConversationList, type InboxFilter } from "@/components/chat/conversati
 import { cn } from "@/lib/utils"
 import type { Conversation, RealtimeEvent } from "@/lib/types"
 
-const FILTERS: InboxFilter[] = ["all", "bot", "mine"]
+const FILTERS: InboxFilter[] = ["all", "bot", "mine", "hidden"]
 
 function sortByRecent(list: Conversation[]): Conversation[] {
 	return [...list].sort((a, b) => {
@@ -28,6 +28,10 @@ function sortByRecent(list: Conversation[]): Conversation[] {
 }
 
 function matchesFilter(conversation: Partial<Conversation>, filter: InboxFilter, agentId: string | null): boolean {
+	if (filter === "hidden") return conversation.hidden === true
+
+	if (conversation.hidden) return false
+
 	if (filter === "all") return true
 
 	if (filter === "bot") return conversation.mode === "bot"
@@ -166,13 +170,6 @@ export default function ConversationsPage() {
 
 	activeIdRef.current = activeId
 
-	const onConversationDeleted = useCallback((id: string) => {
-		setConversations((current) => current.filter((conversation) => conversation.id !== id))
-		setDetached((current) => (current && current.id === id ? null : current))
-
-		if (activeIdRef.current === id) setActiveId(null)
-	}, [])
-
 	const filterRef = useRef(filter)
 
 	filterRef.current = filter
@@ -180,6 +177,32 @@ export default function ConversationsPage() {
 	const agentIdRef = useRef<string | null>(agent?.id ?? null)
 
 	agentIdRef.current = agent?.id ?? null
+
+	const onConversationDeleted = useCallback((id: string) => {
+		setConversations((current) => current.filter((conversation) => conversation.id !== id))
+		setDetached((current) => (current && current.id === id ? null : current))
+
+		if (activeIdRef.current === id) setActiveId(null)
+	}, [])
+
+	const onConversationHiddenChange = useCallback((id: string, hidden: boolean) => {
+		if (matchesFilter({ id, hidden }, filterRef.current, agentIdRef.current)) return
+
+		setConversations((current) => current.filter((conversation) => conversation.id !== id))
+		setDetached((current) => (current && current.id === id ? null : current))
+
+		if (activeIdRef.current === id) setActiveId(null)
+	}, [])
+
+	const handleToggleHide = useCallback(
+		async (id: string, hide: boolean) => {
+			const updated = hide ? await api.hideConversation(id) : await api.unhideConversation(id)
+
+			onConversationChange(updated)
+			onConversationHiddenChange(id, updated.hidden ?? hide)
+		},
+		[onConversationChange, onConversationHiddenChange]
+	)
 
 	const upsert = useCallback((partial: Partial<Conversation> & { id: string }) => {
 		setConversations((current) => {
@@ -315,6 +338,7 @@ export default function ConversationsPage() {
 							setLoading(true)
 						}}
 						onSearchChange={setSearch}
+						onToggleHide={handleToggleHide}
 					/>
 				</div>
 
@@ -330,8 +354,8 @@ export default function ConversationsPage() {
 					<ChatPanel
 						conversation={selected}
 						onConversationChange={onConversationChange}
-						onConversationDeleted={onConversationDeleted}
 						onBack={() => setActiveId(null)}
+						onToggleHide={handleToggleHide}
 					/>
 				</div>
 			</div>

@@ -33,8 +33,10 @@ export const api = {
 	sendMessage: conversationsApi.sendMessage,
 	takeover: conversationsApi.takeover,
 	handoffToAi: conversationsApi.handoffToAi,
-	deleteConversation: conversationsApi.remove,
 	clearConversationMessages: conversationsApi.clearMessages,
+	hideConversation: conversationsApi.hide,
+	unhideConversation: conversationsApi.unhide,
+	hiddenConversations: conversationsApi.listHidden,
 	notifications: notificationsApi.list,
 	markNotificationRead: notificationsApi.markRead
 }

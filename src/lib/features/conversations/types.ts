@@ -1,6 +1,6 @@
 export type Mode = "bot" | "waiting" | "agent"
 
-export type ConversationFilter = "all" | "waiting" | "bot" | "mine"
+export type ConversationFilter = "all" | "waiting" | "bot" | "mine" | "hidden"
 
 export interface Conversation {
 	id: string
@@ -22,6 +22,8 @@ export interface Conversation {
 	/** Open-chat only (GET /conversations/{id}, takeover, hand-back, mark-read). Not on inbox list rows. */
 	blocked?: boolean
 	whatsappStatus?: "blocked" | "failed" | "pending" | "unblocked" | null
+	/** True once /conversations/{id}/hide has been called. Cleared by /unhide. */
+	hidden?: boolean
 }
 
 export type MessageType =

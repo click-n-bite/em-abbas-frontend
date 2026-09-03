@@ -75,6 +75,22 @@ export const conversationsApi = {
 		return URL.createObjectURL(blob)
 	},
 
+	async hide(id: string): Promise<Conversation> {
+		const payload = await request<unknown>(`/conversations/${id}/hide`, { method: "POST" })
+
+		return unwrapItem<Conversation>(payload, "conversation")
+	},
+
+	async unhide(id: string): Promise<Conversation> {
+		const payload = await request<unknown>(`/conversations/${id}/unhide`, { method: "POST" })
+
+		return unwrapItem<Conversation>(payload, "conversation")
+	},
+
+	async listHidden(signal?: AbortSignal): Promise<Conversation[]> {
+		return conversationsApi.list("hidden", signal)
+	},
+
 	async takeover(id: string): Promise<Conversation> {
 		const payload = await request<unknown>(`/conversations/${id}/takeover`, { method: "POST" })
 
@@ -89,20 +105,8 @@ export const conversationsApi = {
 		return unwrapItem<Conversation>(payload, "conversation")
 	},
 
-	/**
-	 * Not documented in CHAT-FRONTEND-API.md — the doc has no delete-conversation
-	 * route. This assumes a conventional `DELETE /conversations/{id}`. Confirm the
-	 * real path with backend before relying on this in production.
-	 */
-	async remove(id: string): Promise<void> {
-		await request<void>(`/conversations/${id}`, { method: "DELETE" })
-	},
 
-	/**
-	 * Also not documented. Assumes `DELETE /conversations/{id}/messages` clears the
-	 * thread but keeps the conversation row. Confirm the real path with backend.
-	 */
 	async clearMessages(id: string): Promise<void> {
-		await request<void>(`/conversations/${id}/messages`, { method: "DELETE" })
+		await request<void>(`/conversations/${id}/clear-messages`, { method: "POST" })
 	}
 }
