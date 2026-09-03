@@ -1,0 +1,9 @@
+{
+  "extends": "next/core-web-vitals",
+  "rules": {
+    "no-console": "warn",
+    "eqeqeq": ["error", "smart"],
+    "prefer-const": "error",
+    "no-unused-vars": "off"
+  }
+}
