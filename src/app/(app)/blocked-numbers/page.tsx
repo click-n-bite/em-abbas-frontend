@@ -39,7 +39,7 @@ function StatusPill({ entry }: { entry: BlockedWhatsappNumber }) {
 		)
 	}
 
-	if (entry.whatsappStatus === "failed") {
+	if (entry.whatsappStatus === "failed" || entry.whatsappStatus === "unblocked") {
 		return (
 			<span className='badge bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-200'>
 				<AlertTriangle className='h-3 w-3' aria-hidden='true' />
@@ -102,7 +102,6 @@ export default function BlockedNumbersPage() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [status])
 
-	// Debounce the phone search box instead of firing a request per keystroke.
 	useEffect(() => {
 		const timer = window.setTimeout(() => void load(true), 300)
 

@@ -15,6 +15,5 @@ export interface UserPayload {
 	displayName: string
 	role: Role
 	isActive: boolean
-	/** Required on create; optional on update (send only when changing it). */
 	password?: string
 }

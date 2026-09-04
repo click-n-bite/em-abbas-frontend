@@ -16,9 +16,6 @@ interface Props {
 	onSubmit: (payload: CreateNotifyPhonePayload | UpdateNotifyPhonePayload) => Promise<void>
 }
 
-/** "96171123456" (no leading "+") needs to be reparsed as full E.164 to
- *  recover which country it belongs to and its national digits, so the
- *  phone input can be prefilled correctly for editing. */
 function seedFromExisting(entry: NotifyPhone | null): { country: CountryCode | null; national: string } {
 	if (!entry) return { country: "LB", national: "" }
 

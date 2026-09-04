@@ -48,7 +48,7 @@ export default function ConversationsPage() {
 
 	const { t } = useI18n()
 
-	const { agent } = useAuth()
+	const { agent, canManageUsers } = useAuth()
 
 	const requestedId = params.get("id")
 
@@ -79,8 +79,26 @@ export default function ConversationsPage() {
 			if (!silent) setLoading(true)
 
 			try {
-				setConversations(await api.conversations(filter))
+				const list = await api.conversations(filter)
+
+				setConversations(list)
 				setFailure(null)
+
+				const needsName = list.filter((item) => item.mode === "agent" && item.assigneeId && !item.assignee)
+
+				if (needsName.length > 0) {
+					void Promise.allSettled(needsName.map((item) => api.conversation(item.id))).then((results) => {
+						results.forEach((result) => {
+							if (result.status !== "fulfilled") return
+
+							const fresh = result.value
+
+							setConversations((current) =>
+								current.map((item) => (item.id === fresh.id ? { ...item, assignee: fresh.assignee ?? null } : item))
+							)
+						})
+					})
+				}
 			} catch (error) {
 				setFailure(errorKey(error))
 			} finally {
@@ -94,6 +112,12 @@ export default function ConversationsPage() {
 	useEffect(() => {
 		void load()
 	}, [load])
+
+	useEffect(() => {
+		if (filter === "hidden" && !canManageUsers) setFilter("all")
+
+		if (filter === "mine" && canManageUsers) setFilter("all")
+	}, [filter, canManageUsers])
 
 	useEffect(() => {
 		if (requestedId) setActiveId(requestedId)
@@ -114,14 +138,16 @@ export default function ConversationsPage() {
 	const filtered = useMemo(() => {
 		const needle = search.trim().toLowerCase()
 
-		if (!needle) return conversations
+		const inTab = conversations.filter((conversation) => matchesFilter(conversation, filter, agent?.id ?? null))
 
-		return conversations.filter((conversation) => {
+		if (!needle) return inTab
+
+		return inTab.filter((conversation) => {
 			const name = conversation.customerName?.toLowerCase() ?? ""
 
 			return name.includes(needle) || conversation.phone.toLowerCase().includes(needle)
 		})
-	}, [conversations, search])
+	}, [conversations, search, filter, agent?.id])
 
 	const active = useMemo(
 		() => conversations.find((conversation) => conversation.id === activeId) ?? null,
@@ -271,11 +297,24 @@ export default function ConversationsPage() {
 
 					if (!conversationId) break
 
+					const nextAssigneeId = (event.assigneeId as string | null | undefined) ?? null
+
 					upsert({
 						id: conversationId,
 						mode: (event.mode as Conversation["mode"]) ?? "agent",
-						assigneeId: (event.assigneeId as string | null | undefined) ?? null
+						assigneeId: nextAssigneeId,
+						assignee:
+							nextAssigneeId && agent && nextAssigneeId === agent.id
+								? { id: agent.id, name: agent.name, email: agent.email }
+								: null
 					})
+
+					if (nextAssigneeId && nextAssigneeId !== agent?.id) {
+						void api
+							.conversation(conversationId)
+							.then((fresh) => upsert({ id: conversationId, assignee: fresh.assignee ?? null }))
+							.catch(() => undefined)
+					}
 
 					break
 				}
@@ -298,7 +337,7 @@ export default function ConversationsPage() {
 					break
 			}
 		},
-		[upsert]
+		[upsert, agent]
 	)
 
 	const socketTopics = useMemo(() => {
@@ -338,7 +377,7 @@ export default function ConversationsPage() {
 							setLoading(true)
 						}}
 						onSearchChange={setSearch}
-						onToggleHide={handleToggleHide}
+						onToggleHide={canManageUsers ? handleToggleHide : undefined}
 					/>
 				</div>
 

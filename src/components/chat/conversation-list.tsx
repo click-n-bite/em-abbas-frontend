@@ -42,7 +42,7 @@ export function ConversationList({
 }: Props) {
 	const { t, formatRelative } = useI18n()
 
-	const { agent } = useAuth()
+	const { agent, canManageUsers } = useAuth()
 
 	const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -76,22 +76,24 @@ export function ConversationList({
 				</div>
 
 				<div role='tablist' className='flex gap-1 rounded-xl bg-ink-100 p-1 dark:bg-ink-900'>
-					{filters.map((value) => (
-						<button
-							key={value}
-							type='button'
-							role='tab'
-							aria-selected={filter === value}
-							onClick={() => onFilterChange(value)}
-							className={cn(
-								"flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition",
-								filter === value
-									? "bg-white text-ink-900 shadow-sm dark:bg-ink-700 dark:text-ink-50"
-									: "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100"
-							)}>
-							{t(`inbox.filters.${value}`)}
-						</button>
-					))}
+					{filters
+						.filter((value) => (value === "hidden" ? canManageUsers : value === "mine" ? !canManageUsers : true))
+						.map((value) => (
+							<button
+								key={value}
+								type='button'
+								role='tab'
+								aria-selected={filter === value}
+								onClick={() => onFilterChange(value)}
+								className={cn(
+									"flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition",
+									filter === value
+										? "bg-white text-ink-900 shadow-sm dark:bg-ink-700 dark:text-ink-50"
+										: "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100"
+								)}>
+								{t(`inbox.filters.${value}`)}
+							</button>
+						))}
 				</div>
 			</div>
 

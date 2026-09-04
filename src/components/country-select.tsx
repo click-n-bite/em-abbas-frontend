@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Check, ChevronDown, Search } from "lucide-react"
 import { countryList, type Country, type CountryCode } from "@/lib/countries"
 import { useI18n } from "@/providers/i18n-provider"
@@ -22,7 +23,13 @@ export function CountrySelect({ value, onChange, disabledCodes = [], compact = f
 
 	const [query, setQuery] = useState("")
 
+	const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null)
+
 	const rootRef = useRef<HTMLDivElement>(null)
+
+	const triggerRef = useRef<HTMLButtonElement>(null)
+
+	const panelRef = useRef<HTMLDivElement>(null)
 
 	const searchRef = useRef<HTMLInputElement>(null)
 
@@ -43,24 +50,58 @@ export function CountrySelect({ value, onChange, disabledCodes = [], compact = f
 		)
 	}, [countries, query])
 
+	const place = () => {
+		const rect = triggerRef.current?.getBoundingClientRect()
+
+		if (!rect) return
+
+		const panelWidth = 320
+
+		const viewportWidth = window.innerWidth
+
+		const left =
+			rect.left + panelWidth > viewportWidth - 12
+				? Math.max(12, rect.right - panelWidth)
+				: rect.left
+
+		setCoords({ top: rect.bottom + 8, left, width: rect.width })
+	}
+
+	useLayoutEffect(() => {
+		if (!open) return
+
+		place()
+	}, [open])
+
 	useEffect(() => {
 		if (!open) return
 
 		const onPointerDown = (event: MouseEvent) => {
-			if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+			const target = event.target as Node
+
+			if (rootRef.current?.contains(target)) return
+			if (panelRef.current?.contains(target)) return
+
+			setOpen(false)
 		}
 
 		const onKeyDown = (event: KeyboardEvent) => {
 			if (event.key === "Escape") setOpen(false)
 		}
 
+		const onReposition = () => place()
+
 		document.addEventListener("mousedown", onPointerDown)
 		document.addEventListener("keydown", onKeyDown)
+		window.addEventListener("scroll", onReposition, true)
+		window.addEventListener("resize", onReposition)
 		searchRef.current?.focus()
 
 		return () => {
 			document.removeEventListener("mousedown", onPointerDown)
 			document.removeEventListener("keydown", onKeyDown)
+			window.removeEventListener("scroll", onReposition, true)
+			window.removeEventListener("resize", onReposition)
 		}
 	}, [open])
 
@@ -74,6 +115,7 @@ export function CountrySelect({ value, onChange, disabledCodes = [], compact = f
 		<div ref={rootRef} className={cn("relative", className)}>
 			<button
 				id={id}
+				ref={triggerRef}
 				type='button'
 				aria-haspopup='listbox'
 				aria-expanded={open}
@@ -103,65 +145,80 @@ export function CountrySelect({ value, onChange, disabledCodes = [], compact = f
 								+{selected.callingCode}
 							</span>
 						) : null}
-						<ChevronDown className='h-4 w-4' aria-hidden='true' />
+						<ChevronDown
+							className={cn("h-4 w-4 transition-transform", open && "rotate-180")}
+							aria-hidden='true'
+						/>
 					</span>
 				)}
 			</button>
 
-			{open ? (
-				<div className='absolute z-40 mt-2 w-72 max-w-[calc(100vw-3rem)] overflow-hidden rounded-xl border border-ink-200 bg-white shadow-xl dark:border-ink-600 dark:bg-ink-800'>
-					<div className='flex items-center gap-2 border-b border-ink-200 px-3 py-2 dark:border-ink-700'>
-						<Search className='h-4 w-4 text-ink-400' aria-hidden='true' />
-						<input
-							ref={searchRef}
-							value={query}
-							onChange={(event) => setQuery(event.target.value)}
-							placeholder={t("phone.searchCountry")}
-							aria-label={t("phone.searchCountry")}
-							className='w-full bg-transparent text-sm outline-none placeholder:text-ink-400'
-						/>
-					</div>
+			{open && coords
+				? createPortal(
+						<div
+							ref={panelRef}
+							style={{ top: coords.top, left: coords.left }}
+							className='fixed z-[999] w-80 max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-ink-100 bg-white p-2 shadow-2xl shadow-ink-900/10 dark:border-ink-700 dark:bg-ink-800'>
+							<div className='flex items-center gap-2 rounded-xl bg-ink-50 px-3 py-2.5 dark:bg-ink-700/60'>
+								<Search className='h-4 w-4 shrink-0 text-ink-400' aria-hidden='true' />
+								<input
+									ref={searchRef}
+									value={query}
+									onChange={(event) => setQuery(event.target.value)}
+									placeholder={t("phone.searchCountry")}
+									aria-label={t("phone.searchCountry")}
+									style={{ boxShadow: "none" }}
+									className='w-full appearance-none border-0 bg-transparent text-sm text-ink-800 placeholder:text-ink-400 focus:!outline-none focus:!ring-0 focus:!ring-offset-0 focus:!shadow-none dark:text-ink-100'
+								/>
+							</div>
 
-					<ul role='listbox' className='max-h-64 overflow-y-auto py-1'>
-						{results.length === 0 ? (
-							<li className='px-3 py-6 text-center text-sm text-ink-500'>{t("phone.noMatch")}</li>
-						) : (
-							results.map((country) => {
-								const isDisabled = disabledCodes.includes(country.code)
+							<ul role='listbox' className='mt-2 max-h-64 space-y-0.5 overflow-y-auto pe-1'>
+								{results.length === 0 ? (
+									<li className='px-3 py-8 text-center text-sm text-ink-400'>{t("phone.noMatch")}</li>
+								) : (
+									results.map((country) => {
+										const isDisabled = disabledCodes.includes(country.code)
 
-								const isSelected = country.code === value
+										const isSelected = country.code === value
 
-								return (
-									<li key={country.code}>
-										<button
-											type='button'
-											role='option'
-											aria-selected={isSelected}
-											disabled={isDisabled}
-											onClick={() => pick(country)}
-											className={cn(
-												"flex w-full items-center gap-3 px-3 py-2 text-start text-sm transition",
-												isDisabled
-													? "cursor-not-allowed text-ink-300 dark:text-ink-600"
-													: "hover:bg-ink-100 dark:hover:bg-ink-700",
-												isSelected && "bg-brand-50 dark:bg-brand-900/30"
-											)}>
-											<span aria-hidden='true' className='text-base leading-none'>
-												{country.flag}
-											</span>
-											<span className='flex-1 truncate'>{country.name}</span>
-											<span className='tabular-nums text-ink-400' dir='ltr'>
-												+{country.callingCode}
-											</span>
-											{isSelected ? <Check className='h-4 w-4 text-brand-600' aria-hidden='true' /> : null}
-										</button>
-									</li>
-								)
-							})
-						)}
-					</ul>
-				</div>
-			) : null}
+										return (
+											<li key={country.code}>
+												<button
+													type='button'
+													role='option'
+													aria-selected={isSelected}
+													disabled={isDisabled}
+													onClick={() => pick(country)}
+													className={cn(
+														"flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-start text-sm transition",
+														isDisabled
+															? "cursor-not-allowed text-ink-300 dark:text-ink-600"
+															: "hover:bg-ink-100 dark:hover:bg-ink-700/70",
+														isSelected &&
+															"bg-brand-50 font-medium text-brand-700 dark:bg-brand-900/30 dark:text-brand-300"
+													)}>
+													<span
+														aria-hidden='true'
+														className='flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-100 text-base leading-none dark:bg-ink-700'>
+														{country.flag}
+													</span>
+													<span className='flex-1 truncate'>{country.name}</span>
+													<span className='tabular-nums text-xs text-ink-400' dir='ltr'>
+														+{country.callingCode}
+													</span>
+													{isSelected ? (
+														<Check className='h-4 w-4 shrink-0 text-brand-600' aria-hidden='true' />
+													) : null}
+												</button>
+											</li>
+										)
+									})
+								)}
+							</ul>
+						</div>,
+						document.body
+				  )
+				: null}
 		</div>
 	)
 }

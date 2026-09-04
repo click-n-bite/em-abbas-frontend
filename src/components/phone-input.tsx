@@ -33,7 +33,7 @@ export function PhoneInput({ country, national, onCountryChange, onNationalChang
 				</label>
 			) : null}
 
-			<div className='flex items-stretch overflow-hidden rounded-xl border border-ink-200 bg-white focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-200 dark:border-ink-600 dark:bg-ink-900 dark:focus-within:ring-brand-900'>
+			<div className='flex items-stretch rounded-xl border border-ink-200 bg-white focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-200 dark:border-ink-600 dark:bg-ink-900 dark:focus-within:ring-brand-900'>
 				<CountrySelect compact value={country} onChange={onCountryChange} />
 				<input
 					id={id}
@@ -48,7 +48,7 @@ export function PhoneInput({ country, national, onCountryChange, onNationalChang
 					}
 					placeholder='5X XXX XXXX'
 					aria-invalid={showError}
-					className='w-full bg-transparent px-3 py-2 text-sm outline-none placeholder:text-ink-400 dark:placeholder:text-ink-500'
+					className='w-full rounded-e-xl bg-transparent px-3 py-2 text-sm outline-none placeholder:text-ink-400 dark:placeholder:text-ink-500'
 				/>
 			</div>
 

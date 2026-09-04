@@ -1,12 +1,6 @@
 import { request, unwrapItem, unwrapList } from "@/lib/http"
 import type { BlockedNumbersStatusFilter, BlockedWhatsappNumber, BlockNumberPayload } from "./types"
 
-/**
- * WhatsApp number blocking on the real EMA backend
- * (/api/admin/blocked-whatsapp-numbers). SUPER_ADMIN / ADMIN only — AGENT
- * gets 403. Distinct from country blocking (see the `blacklist` feature) and
- * from the read-only `blocked` badge shown on an open chat.
- */
 export const blockedNumbersApi = {
 	async list(
 		status: BlockedNumbersStatusFilter = "blocked",
@@ -26,7 +20,6 @@ export const blockedNumbersApi = {
 		return unwrapList<BlockedWhatsappNumber>(payload, "blockedWhatsappNumbers")
 	},
 
-	/** 201 the first time a phone is blocked, 200 if the row already existed (re-block / retry Meta). */
 	async block(payload: BlockNumberPayload): Promise<BlockedWhatsappNumber> {
 		const result = await request<unknown>("/api/admin/blocked-whatsapp-numbers", {
 			method: "POST",
@@ -36,7 +29,6 @@ export const blockedNumbersApi = {
 		return unwrapItem<BlockedWhatsappNumber>(result, "blockedWhatsappNumber")
 	},
 
-	/** Row is kept for history — localStatus becomes "unblocked", whatsappStatus resets to "pending". */
 	async unblock(id: string): Promise<BlockedWhatsappNumber> {
 		const result = await request<unknown>(`/api/admin/blocked-whatsapp-numbers/${id}/unblock`, {
 			method: "POST"

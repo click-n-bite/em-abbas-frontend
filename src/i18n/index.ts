@@ -13,7 +13,6 @@ export function dirOf(locale: Locale): "ltr" | "rtl" {
 	return locale === "ar" ? "rtl" : "ltr"
 }
 
-/** Resolve a dotted key such as `users.roles.admin` against a dictionary. */
 export function lookup(dict: Dictionary, key: string): string {
 	const value = key.split(".").reduce<unknown>((acc, part) => {
 		if (acc && typeof acc === "object" && part in (acc as Record<string, unknown>)) {

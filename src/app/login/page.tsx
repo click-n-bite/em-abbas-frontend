@@ -32,7 +32,6 @@ function LoginForm() {
 
 	const next = params.get("next") || "/conversations"
 
-	// Someone who is already signed in never sees this screen.
 	useEffect(() => {
 		if (ready && agent) router.replace(next)
 	}, [ready, agent, router, next])
@@ -146,7 +145,6 @@ function LoginForm() {
 	)
 }
 
-// useSearchParams() needs a Suspense boundary so the shell can still be prerendered.
 export default function LoginPage() {
 	return (
 		<Suspense

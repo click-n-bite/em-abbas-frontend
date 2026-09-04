@@ -32,9 +32,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }): JS
 
 	const inFlight = useRef<boolean>(false)
 
-	// Arm the "click/keypress unlocks audio" listener once, app-wide, so the
-	// very first realtime ping actually makes a sound instead of being
-	// silently blocked by the browser's autoplay policy.
+
 	useEffect(() => {
 		unlockSoundOnFirstInteraction()
 	}, [])

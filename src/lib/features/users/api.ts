@@ -12,7 +12,6 @@ function normalizeUser(user: PortalUser): PortalUser {
 	return { ...user, role: fromWireRole(user.role) }
 }
 
-/** Portal user management on the real EMA backend (/api/admin/users). */
 export const usersApi = {
 	async list(signal?: AbortSignal): Promise<PortalUser[]> {
 		const payload = await request<unknown>("/api/admin/users", { signal })

@@ -10,7 +10,6 @@ import type { BlockNumberPayload } from "@/lib/api"
 
 interface Props {
 	open: boolean
-	/** Prefill (e.g. "Block this contact" from an open chat). Full E.164 number, digits after "+". */
 	initialPhone?: string | null
 	onClose: () => void
 	onSubmit: (payload: BlockNumberPayload) => Promise<void>

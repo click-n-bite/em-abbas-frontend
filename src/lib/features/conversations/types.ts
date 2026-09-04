@@ -19,10 +19,8 @@ export interface Conversation {
 	lastMessageSource?: "customer" | "bot" | "agent" | null
 	unreadCount?: number
 	lastReadAt?: string | null
-	/** Open-chat only (GET /conversations/{id}, takeover, hand-back, mark-read). Not on inbox list rows. */
 	blocked?: boolean
 	whatsappStatus?: "blocked" | "failed" | "pending" | "unblocked" | null
-	/** True once /conversations/{id}/hide has been called. Cleared by /unhide. */
 	hidden?: boolean
 }
 
@@ -61,35 +59,27 @@ export interface ButtonItem {
 	title: string
 }
 
-/** Rich-message payload. Shape depends on `Message.type` — see FRONTEND-AGENT-SEND-AND-NOTIFY.md. */
 export interface MessagePayload {
-	// buttons
 	buttons?: ButtonItem[]
-	// list
 	buttonText?: string
 	sections?: ListSection[]
-	// template / otp
 	templateName?: string
 	language?: string
 	bodyParams?: string[]
 	headerText?: string | null
 	buttonUrlParam?: string | null
 	code?: string
-	// location
 	latitude?: number
 	longitude?: number
 	locationName?: string
 	address?: string
-	// contacts
 	contactName?: string
 	phone?: string
-	// flow
 	flowId?: string
 	flowCta?: string
 	screenId?: string
 	flowToken?: string
 	draftMode?: boolean
-	// inbound taps (interactive / button)
 	type?: "button_reply" | "list_reply"
 	button_reply?: { id: string; title: string }
 	list_reply?: { id: string; title: string; description?: string }

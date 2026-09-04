@@ -18,10 +18,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-// Refresh a bit before the access token actually dies (it lives 15 minutes),
-// so the person renews silently in the background and never actually hits a
-// 401. If the network is briefly unreachable, we still have this much of a
-// buffer to retry before the token truly expires.
 const REFRESH_BUFFER_MS = 60_000
 const MIN_SCHEDULE_MS = 3_000
 
@@ -29,9 +25,6 @@ function isExpired(session: SessionAgent | null): boolean {
 	return Boolean(session?.expiresAt) && Date.now() >= (session?.expiresAt ?? 0)
 }
 
-/** Build/refresh a SessionAgent from a JWT, keeping whatever identity fields
- *  the caller already had (username, resolved role, etc.) when the fresh
- *  token's claims don't carry them. */
 function sessionFromToken(accessToken: string, base: SessionAgent | null): SessionAgent {
 	const claims = decodeJwt(accessToken) as Partial<AccessTokenClaims> | null
 
@@ -42,8 +35,6 @@ function sessionFromToken(accessToken: string, base: SessionAgent | null): Sessi
 		email: base?.email ?? username,
 		name: base?.name ?? username,
 		role: base?.role ?? resolveRole(username, claims?.role),
-		// Standard JWT `exp` is seconds since epoch; fall back to a 15 minute
-		// window (the documented access-token lifetime) if it's missing.
 		expiresAt: claims?.exp ? claims.exp * 1000 : Date.now() + 15 * 60 * 1000
 	}
 }
@@ -69,8 +60,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		clearSession()
 		setToken(null)
 		setAgent(null)
-		// router.replace is a client-side navigation — no full page reload,
-		// so this fires the instant a refresh fails, not on the next click.
 		router.replace("/login")
 	}, [router])
 
@@ -87,8 +76,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		return session
 	}, [])
 
-	// React to refreshes/expirations triggered from inside http.ts (e.g. a
-	// request that hit a 401 mid-flight and refreshed reactively).
 	useEffect(() => {
 		const onExpired = () => logout()
 
@@ -107,9 +94,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		}
 	}, [agent, applySession, logout])
 
-	// Initial load: if the stored access token already expired, try a
-	// silent refresh before giving up (the refresh token likely still has
-	// plenty of life left even after e.g. the laptop was asleep).
 	useEffect(() => {
 		let cancelled = false
 
@@ -158,11 +142,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [])
 
-	// Proactive background refresh: schedule the next silent refresh a
-	// minute before the current access token expires. If it succeeds, the
-	// resulting `agent` update reschedules the next one automatically. If
-	// the refresh token itself is dead, log out immediately — no waiting
-	// for the person to hit a 401 on some future click.
 	useEffect(() => {
 		if (refreshTimer.current) {
 			window.clearTimeout(refreshTimer.current)

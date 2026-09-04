@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Ban, CheckCircle2, RefreshCw, ShieldAlert, Trash2, XCircle } from "lucide-react"
+import { Ban, RefreshCw, ShieldAlert, Trash2 } from "lucide-react"
 import { adminApi } from "@/lib/api"
 import { errorDetail, errorKey } from "@/lib/errors"
 import { useAuth } from "@/providers/auth-provider"
@@ -12,15 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { Spinner } from "@/components/ui/spinner"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { CountrySelect } from "@/components/country-select"
-import { PhoneInput } from "@/components/phone-input"
-import {
-	callingCodeOf,
-	countryForCallingCode,
-	countryName,
-	evaluateNumber,
-	flagOf,
-	type CountryCode
-} from "@/lib/countries"
+import { callingCodeOf, countryForCallingCode, countryName, flagOf, type CountryCode } from "@/lib/countries"
 import { cn } from "@/lib/utils"
 import type { BlockedCountry } from "@/lib/types"
 
@@ -43,10 +35,6 @@ export default function BlacklistPage() {
 
 	const [pendingRemove, setPendingRemove] = useState<BlockedCountry | null>(null)
 
-	const [testCountry, setTestCountry] = useState<CountryCode | null>("SA")
-
-	const [testNumber, setTestNumber] = useState("")
-
 	const load = useCallback(async () => {
 		try {
 			const list = await adminApi.listBlockedCountries()
@@ -64,8 +52,6 @@ export default function BlacklistPage() {
 		void load()
 	}, [load])
 
-	// The API only gives us a calling code, so the ISO code (used for flags
-	// and disabling an already-blocked country in the picker) is a best guess.
 	const codeOf = useCallback((entry: BlockedCountry) => countryForCallingCode(entry.callingCode), [])
 
 	const blockedCodes = useMemo(
@@ -82,12 +68,6 @@ export default function BlacklistPage() {
 
 		return [...entries].sort((a, b) => collator.compare(nameOf(a), nameOf(b)))
 	}, [entries, locale])
-
-	const verdict = useMemo(() => {
-		if (!testNumber.trim()) return null
-
-		return evaluateNumber(testNumber, blockedCodes, blockedCallingCodes, testCountry ?? undefined)
-	}, [testNumber, blockedCodes, blockedCallingCodes, testCountry])
 
 	const block = async () => {
 		if (!country || busy) return
@@ -244,45 +224,6 @@ export default function BlacklistPage() {
 								{busy ? t("blacklist.blocking") : t("blacklist.block")}
 							</button>
 						</form>
-					</section>
-
-					<section className='card p-5'>
-						<h2 className='text-sm font-semibold text-ink-900 dark:text-ink-50'>{t("blacklist.checkTitle")}</h2>
-						<p className='mt-1 text-xs text-ink-500 dark:text-ink-400'>{t("blacklist.checkSubtitle")}</p>
-						<div className='mt-4'>
-							<PhoneInput
-								label={t("blacklist.checkPlaceholder")}
-								country={testCountry}
-								national={testNumber}
-								onCountryChange={setTestCountry}
-								onNationalChange={setTestNumber}
-							/>
-						</div>
-
-						{verdict ? (
-							<p
-								className={cn(
-									"mt-3 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm",
-									verdict.status === "allowed" &&
-										"bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200",
-									verdict.status === "blocked" && "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-200",
-									verdict.status === "invalid" && "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-200"
-								)}
-								role='status'>
-								{verdict.status === "allowed" ? (
-									<CheckCircle2 className='h-4 w-4' aria-hidden='true' />
-								) : (
-									<XCircle className='h-4 w-4' aria-hidden='true' />
-								)}
-								{verdict.status === "allowed"
-									? t("blacklist.allowed")
-									: verdict.status === "blocked"
-										? t("blacklist.rejected", {
-												country: verdict.country ? countryName(verdict.country, locale) : t("common.unknown")
-											})
-										: t("blacklist.invalid")}
-							</p>
-						) : null}
 					</section>
 				</div>
 			</div>

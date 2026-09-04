@@ -495,7 +495,9 @@ function MessageTapHint({ message, outbound }: { message: Message; outbound: boo
 export function ChatPanel({ conversation, onConversationChange, onBack, onToggleHide }: Props) {
 	const { t, formatTime, formatDateTime, dir } = useI18n()
 
-	const { agent, canManageUsers } = useAuth()
+	const { agent, role, canManageUsers } = useAuth()
+
+	const canChangeMode = role === "agent"
 
 	const { push } = useToast()
 
@@ -548,6 +550,10 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 	const conversationRef = useRef(conversation)
 
 	conversationRef.current = conversation
+
+	const agentRef = useRef(agent)
+
+	agentRef.current = agent
 
 	const markReadTimer = useRef<number | null>(null)
 
@@ -691,11 +697,30 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 			if (event.event === "conversation.assigned") {
 				if (event.conversationId !== current.id) return
 
+				const nextAssigneeId = (event.assigneeId as string | null | undefined) ?? null
+
+				const agentNow = agentRef.current
+
 				onConversationChangeRef.current({
 					...current,
 					mode: (event.mode as Conversation["mode"]) ?? current.mode,
-					assigneeId: (event.assigneeId as string | null | undefined) ?? null
+					assigneeId: nextAssigneeId,
+					assignee:
+						nextAssigneeId && agentNow && nextAssigneeId === agentNow.id
+							? { id: agentNow.id, name: agentNow.name, email: agentNow.email }
+							: null
 				})
+
+				if (nextAssigneeId && nextAssigneeId !== agentNow?.id) {
+					void api
+						.conversation(current.id)
+						.then((fresh) => {
+							if (conversationRef.current?.id === current.id) {
+								onConversationChangeRef.current({ ...conversationRef.current, assignee: fresh.assignee ?? null })
+							}
+						})
+						.catch(() => undefined)
+				}
 
 				return
 			}
@@ -743,8 +768,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 
 	const phoneForBlockLookup = conversation?.phone ?? null
 
-	// The chat only stores a boolean `blocked` flag; unblocking needs the row id from
-	// /api/admin/blocked-whatsapp-numbers, so look it up by phone whenever this thread is blocked.
 	useEffect(() => {
 		if (!blocked || !phoneForBlockLookup) {
 			setBlockedEntryId(null)
@@ -904,7 +927,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 
 		return `${minutes}:${String(seconds).padStart(2, "0")}`
 	}
-	// -------------------------------------------------------------------------
 
 	const send = async () => {
 		const text = draft.trim()
@@ -1037,7 +1059,7 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 	}
 
 	const changeMode = async (action: "takeover" | "handoff") => {
-		if (!conversationId || modeBusy) return
+		if (!conversationId || modeBusy || !canChangeMode) return
 
 		setModeBusy(true)
 
@@ -1179,7 +1201,7 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 							{t(
 								conversation.whatsappStatus === "blocked"
 									? "chat.blockedBadge"
-									: conversation.whatsappStatus === "failed"
+									: conversation.whatsappStatus === "failed" || conversation.whatsappStatus === "unblocked"
 										? "chat.blockedBadgeLocalOnly"
 										: "chat.blockedBadgePending"
 							)}
@@ -1195,7 +1217,7 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 						</span>
 					) : null}
 
-					{conversation.mode === "agent" && mine ? (
+					{!canChangeMode ? null : conversation.mode === "agent" && mine ? (
 						<button type='button' className='btn-secondary' onClick={() => changeMode("handoff")} disabled={modeBusy}>
 							{modeBusy ? <Spinner /> : <Undo2 className='h-4 w-4' aria-hidden='true' />}
 							{modeBusy ? t("chat.handingOff") : t("chat.handoff")}

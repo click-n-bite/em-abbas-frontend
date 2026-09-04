@@ -10,7 +10,6 @@ import { AppShell } from '@/components/layout/app-shell';
 import { EmptyState } from '@/components/ui/empty-state';
 import { cn, uuid } from '@/lib/utils';
 
-/** Ring-buffer size: enough scrollback for debugging without eating memory. */
 const MAX_ENTRIES = 500;
 
 interface LogEntry {

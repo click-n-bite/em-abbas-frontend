@@ -9,10 +9,24 @@ interface WhatsAppAudioPlayerProps {
 	sentTime?: string
 }
 
+const AUDIO_PLAY_EVENT = "ema:voice-note-play"
+
+function broadcastPlaying(id: string) {
+	window.dispatchEvent(new CustomEvent<string>(AUDIO_PLAY_EVENT, { detail: id }))
+}
+
+let nextPlayerId = 0
+
 export function WhatsAppAudioPlayer({ src, sentTime }: WhatsAppAudioPlayerProps) {
 	const audioRef = useRef<HTMLAudioElement | null>(null)
 
+	const playerId = useRef(`voice-${++nextPlayerId}-${src}`).current
+
 	const [isPlaying, setIsPlaying] = useState(false)
+
+	const isPlayingRef = useRef(false)
+
+	isPlayingRef.current = isPlaying
 
 	const [currentTime, setCurrentTime] = useState(0)
 
@@ -24,7 +38,11 @@ export function WhatsAppAudioPlayer({ src, sentTime }: WhatsAppAudioPlayerProps)
 		if (!audio) return
 
 		const handleLoadedMetadata = () => {
-			setDuration(audio.duration)
+			if (Number.isFinite(audio.duration)) setDuration(audio.duration)
+		}
+
+		const handleDurationChange = () => {
+			if (Number.isFinite(audio.duration)) setDuration(audio.duration)
 		}
 
 		const handleTimeUpdate = () => {
@@ -36,14 +54,45 @@ export function WhatsAppAudioPlayer({ src, sentTime }: WhatsAppAudioPlayerProps)
 			setCurrentTime(0)
 		}
 
+		const handlePause = () => {
+			setIsPlaying(false)
+		}
+
 		audio.addEventListener("loadedmetadata", handleLoadedMetadata)
+		audio.addEventListener("durationchange", handleDurationChange)
 		audio.addEventListener("timeupdate", handleTimeUpdate)
 		audio.addEventListener("ended", handleEnded)
+		audio.addEventListener("pause", handlePause)
 
 		return () => {
 			audio.removeEventListener("loadedmetadata", handleLoadedMetadata)
+			audio.removeEventListener("durationchange", handleDurationChange)
 			audio.removeEventListener("timeupdate", handleTimeUpdate)
 			audio.removeEventListener("ended", handleEnded)
+			audio.removeEventListener("pause", handlePause)
+		}
+	}, [])
+
+	useEffect(() => {
+		const onOtherPlayerStarted = (event: Event) => {
+			const startedId = (event as CustomEvent<string>).detail
+
+			if (startedId === playerId) return // that broadcast was us starting, ignore it
+
+			if (isPlayingRef.current) {
+				audioRef.current?.pause()
+				setIsPlaying(false)
+			}
+		}
+
+		window.addEventListener(AUDIO_PLAY_EVENT, onOtherPlayerStarted)
+
+		return () => window.removeEventListener(AUDIO_PLAY_EVENT, onOtherPlayerStarted)
+	}, [playerId])
+
+	useEffect(() => {
+		return () => {
+			audioRef.current?.pause()
 		}
 	}, [])
 
@@ -60,10 +109,12 @@ export function WhatsAppAudioPlayer({ src, sentTime }: WhatsAppAudioPlayerProps)
 		}
 
 		try {
+			broadcastPlaying(playerId)
 			await audio.play()
 			setIsPlaying(true)
 		} catch (error) {
 			console.error("Failed to play audio:", error)
+			setIsPlaying(false)
 		}
 	}
 
@@ -76,12 +127,15 @@ export function WhatsAppAudioPlayer({ src, sentTime }: WhatsAppAudioPlayerProps)
 
 		const clickPosition = event.clientX - rect.left
 
-		const percentage = clickPosition / rect.width
+		const percentage = Math.min(1, Math.max(0, clickPosition / rect.width))
 
 		audio.currentTime = percentage * duration
+		setCurrentTime(audio.currentTime)
 	}
 
 	const progress = duration > 0 ? (currentTime / duration) * 100 : 0
+
+	const displaySeconds = isPlaying || currentTime > 0 ? currentTime : duration
 
 	const waveform = [
 		8, 14, 20, 11, 17, 24, 15, 9, 19, 25, 13, 18, 10, 22, 16, 8, 14, 21, 12, 18, 26, 15, 10, 17, 23, 13, 19, 9, 16, 24,
@@ -92,7 +146,6 @@ export function WhatsAppAudioPlayer({ src, sentTime }: WhatsAppAudioPlayerProps)
 		<div className='flex min-w-[230px] max-w-[280px] items-center gap-2 py-1'>
 			<audio ref={audioRef} src={src} preload='metadata' />
 
-			{/* Play / Pause */}
 			<button
 				type='button'
 				onClick={togglePlay}
@@ -106,7 +159,6 @@ export function WhatsAppAudioPlayer({ src, sentTime }: WhatsAppAudioPlayerProps)
 			</button>
 
 			<div className='min-w-0 flex-1'>
-				{/* Waveform */}
 				<div onClick={handleProgressClick} className='flex h-7 cursor-pointer items-center gap-[2px]'>
 					{waveform.map((height, index) => {
 						const percentage = ((index + 1) / waveform.length) * 100
@@ -128,7 +180,7 @@ export function WhatsAppAudioPlayer({ src, sentTime }: WhatsAppAudioPlayerProps)
 				</div>
 
 				<div className='mt-0.5 flex items-center justify-between text-[10px] leading-none text-gray-300 dark:text-gray-300'>
-					<span dir='ltr'>{formatTime(duration)}</span>
+					<span dir='ltr'>{formatTime(displaySeconds)}</span>
 
 					{sentTime ? <span dir='ltr'>{sentTime}</span> : null}
 				</div>

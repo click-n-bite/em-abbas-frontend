@@ -1,9 +1,7 @@
 export type WhatsappBlockStatus = "blocked" | "unblocked" | "failed" | "pending"
 
-/** A row from /api/admin/blocked-whatsapp-numbers. Unblocking keeps the row (history). */
 export interface BlockedWhatsappNumber {
 	id: string
-	/** Digits only — "+" and spaces are stripped server-side. */
 	phone: string
 	reason: string | null
 	createdBy: number | string | null
@@ -16,9 +14,7 @@ export interface BlockedWhatsappNumber {
 }
 
 export interface BlockNumberPayload {
-	/** Full customer WhatsApp number, at least 8 digits after stripping non-digits. */
 	phone: string
-	/** Optional audit text — never sent to Meta or the customer. */
 	reason?: string | null
 }
 

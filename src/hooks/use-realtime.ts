@@ -91,7 +91,6 @@ export function useRealtime({ topics, onEvent, enabled = true }: Options): Conne
 				try {
 					sub.unsubscribe()
 				} catch {
-					// the socket is already gone; nothing to unsubscribe from
 				}
 			})
 			subsRef.current = []

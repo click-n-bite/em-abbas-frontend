@@ -21,11 +21,6 @@ const SUPERADMINS = emailList(process.env.NEXT_PUBLIC_SUPERADMIN_EMAILS)
 
 const ADMINS = emailList(process.env.NEXT_PUBLIC_ADMIN_EMAILS)
 
-/**
- * The API's wire format uses `super_admin` (with underscore); the portal's
- * internal Role type keeps the existing `superadmin` (no underscore) so the
- * rest of the app, and the i18n keys, don't need to change.
- */
 function normalizeWireRole(value: unknown): Role | null {
 	const normalized = String(value ?? "")
 		.trim()
@@ -40,12 +35,10 @@ function normalizeWireRole(value: unknown): Role | null {
 	return null
 }
 
-/** Internal Role -> the API's wire format. */
 export function toWireRole(role: Role): string {
 	return role === "superadmin" ? "super_admin" : role
 }
 
-/** The API's wire format -> internal Role. Falls back to 'agent' if unrecognized. */
 export function fromWireRole(value: unknown): Role {
 	return normalizeWireRole(value) ?? "agent"
 }

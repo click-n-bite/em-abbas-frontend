@@ -1,6 +1,5 @@
 export interface BlockedCountry {
 	id: string
-	/** Calling code without the leading "+". */
 	callingCode: string
 	nameAr: string
 	nameEn: string

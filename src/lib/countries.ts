@@ -14,7 +14,6 @@ export interface Country {
 	flag: string
 }
 
-/** Regional-indicator emoji flag for an ISO alpha-2 code. */
 export function flagOf(code: string): string {
 	if (!/^[A-Za-z]{2}$/.test(code)) return "\u{1F3F3}"
 
@@ -35,7 +34,6 @@ function displayNames(locale: Locale): Intl.DisplayNames | null {
 
 const cache = new Map<Locale, Country[]>()
 
-/** All dialable countries, localized and sorted for the current language. */
 export function countryList(locale: Locale): Country[] {
 	const cached = cache.get(locale)
 
@@ -72,13 +70,7 @@ export function callingCodeOf(code: string): string {
 
 let callingCodeIndex: Map<string, CountryCode> | null = null
 
-/**
- * Best-effort reverse lookup from a calling code (e.g. "966") back to an
- * ISO alpha-2 country. Some calling codes are shared by multiple countries
- * (e.g. +1), so this is only used for cosmetics (flags, disabling an
- * already-blocked entry in the picker) — never for the actual block check,
- * which relies on the calling code itself.
- */
+
 export function countryForCallingCode(callingCode: string): CountryCode | null {
 	const digits = callingCode.replace(/[^\d]/g, "")
 
@@ -96,7 +88,6 @@ export function countryForCallingCode(callingCode: string): CountryCode | null {
 	return callingCodeIndex.get(digits) ?? null
 }
 
-/** Format digits as the user types, scoped to the selected country. */
 export function formatAsYouType(value: string, country: CountryCode): string {
 	return new AsYouType(country).input(value)
 }
@@ -106,11 +97,9 @@ export interface ParsedPhone {
 	e164: string | null
 	country: CountryCode | null
 	callingCode: string | null
-	/** Number without the country prefix, useful to refill a phone field. */
 	national: string
 }
 
-/** Parse a national or international number; `country` is the fallback region. */
 export function parsePhone(value: string, country?: CountryCode): ParsedPhone {
 	const trimmed = value.trim()
 
@@ -139,10 +128,7 @@ export function parsePhone(value: string, country?: CountryCode): ParsedPhone {
 	}
 }
 
-/**
- * Decide whether a number may enter the queue.
- * A number is rejected when its country (or bare calling code) is blacklisted.
- */
+
 export function evaluateNumber(
 	value: string,
 	blockedCodes: string[],

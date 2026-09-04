@@ -2,11 +2,6 @@
 
 import { STORAGE_KEYS } from "./config"
 
-/**
- * Short "new message" ping, synthesized with the WebAudio API so the portal
- * doesn't need to ship/host an audio file. Two quick tones, like a
- * lightweight WhatsApp-style notification chime.
- */
 
 let ctx: AudioContext | null = null
 
@@ -24,12 +19,7 @@ function getContext(): AudioContext | null {
 	return ctx
 }
 
-/**
- * Browsers block audio until a user gesture happens on the page. Call this
- * once on the first click/keypress/touch so the AudioContext is warmed up
- * and later programmatic pings (triggered by a STOMP event, not a click)
- * actually play instead of failing silently.
- */
+
 export function unlockSoundOnFirstInteraction(): void {
 	if (typeof window === "undefined" || unlocked) return
 
