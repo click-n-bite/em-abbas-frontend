@@ -1,4 +1,4 @@
-import { Bot, Clock, Headphones } from "lucide-react"
+import { Ban, Bot, Clock, Headphones } from "lucide-react"
 import type { Mode, Role } from "@/lib/types"
 import { useI18n } from "@/providers/i18n-provider"
 
@@ -49,6 +49,29 @@ export function StatusDot({ active }: { active: boolean }) {
 				aria-hidden='true'
 			/>
 			{t(active ? "users.active" : "users.inactive")}
+		</span>
+	)
+}
+
+
+export function BlockedBadge({
+	whatsappStatus
+}: {
+	whatsappStatus?: "blocked" | "failed" | "pending" | "unblocked" | null
+}) {
+	const { t } = useI18n()
+
+	const key =
+		whatsappStatus === "blocked"
+			? "chat.blockedBadge"
+			: whatsappStatus === "failed" || whatsappStatus === "unblocked"
+				? "chat.blockedBadgeLocalOnly"
+				: "chat.blockedBadgePending"
+
+	return (
+		<span className='badge bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-200'>
+			<Ban className='h-3 w-3' aria-hidden='true' />
+			{t(key)}
 		</span>
 	)
 }

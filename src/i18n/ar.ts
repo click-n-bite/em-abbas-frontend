@@ -73,15 +73,19 @@ const ar: Dictionary = {
 	},
 	inbox: {
 		title: "المحادثات",
-		filters: { all: "الكل", waiting: "بانتطار", bot: "الذكاء الاصطناعي", mine: "خاصتي", hidden: "مخفية" },
-		searchPlaceholder: "ابحث بالاسم أو الرقم…",
+		filters: { all: "الكل", waiting: "بانتطار", bot: "الذكاء الاصطناعي", agent: "موظف", mine: "خاصتي", hidden: "مخفية" },
+		searchPlaceholder: "ابحث بالاسم أو الرقم أو الموظف…",
 		empty: "لا توجد محادثات مطابقة.",
 		selectHint: "اختر محادثة لقراءة الرسائل.",
 		unassigned: "غير مسندة",
 		assignedTo: "مسندة إلى {name}",
 		you: "أنت",
 		unreadCount: "{n} غير مقروءة",
-		hiddenEmpty: "غير متوفر"
+		hiddenEmpty: "غير متوفر",
+		allAgents: "كل الموظفين",
+		filterByAgent: "تصفية حسب الموظف",
+		quickBlock: "حجب",
+		quickUnblock: "إلغاء الحجب"
 	},
 	chat: {
 		takeover: "تولي المحادثة",
@@ -89,8 +93,9 @@ const ar: Dictionary = {
 		handoff: "إعادة للذكاء الاصطناعي",
 		handingOff: "جارٍ التسليم…",
 		inputPlaceholder: "اكتب ردّاً…",
-		inputLockedBot: "الذكاء الاصطناعي يدير المحادثة. تولَّ المحادثة للرد.",
+		inputLockedBot: "الذكاء الاصطناعي يدير المحادثة. تولَّ المحادثة للرد.",
 		inputLockedOther: "موظف آخر يدير هذه المحادثة.",
+		inputLockedViewOnly: "لديك صلاحية العرض فقط لهذه المحادثة.",
 		send: "إرسال",
 		sending: "جارٍ الإرسال…",
 		emptyThread: "لا توجد رسائل في هذه المحادثة بعد.",
@@ -201,6 +206,7 @@ const ar: Dictionary = {
 		onlySuperadminRole: "منح دور المدير الأعلى متاح للمدير الأعلى فقط.",
 		duplicateUsername: "اسم المستخدم هذا مستخدم بالفعل.",
 		roles: { superadmin: "مدير أعلى", admin: "مدير", agent: "موظف" },
+		filters: { all: "كل الأدوار", superadmin: "مدير أعلى", admin: "مدير", agent: "موظف" },
 		roleHelp: {
 			superadmin: "وصول كامل، ويدير جميع المستخدمين والدول المحجوبة.",
 			admin: "يمكنه إدارة الموظفين والدول المحجوبة.",

@@ -14,7 +14,11 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { UserFormModal } from "@/components/users/user-form-modal"
 import { cn, textDirOf } from "@/lib/utils"
-import type { PortalUser } from "@/lib/types"
+import type { PortalUser, Role } from "@/lib/types"
+
+type RoleFilter = Role | "all"
+
+const ROLE_FILTERS: RoleFilter[] = ["all", "superadmin", "admin", "agent"]
 
 export default function UsersPage() {
 	const { t, formatDateTime } = useI18n()
@@ -30,6 +34,8 @@ export default function UsersPage() {
 	const [failure, setFailure] = useState<string | null>(null)
 
 	const [query, setQuery] = useState("")
+
+	const [roleFilter, setRoleFilter] = useState<RoleFilter>("all")
 
 	const [formOpen, setFormOpen] = useState(false)
 
@@ -63,12 +69,14 @@ export default function UsersPage() {
 	const filtered = useMemo(() => {
 		const needle = query.trim().toLowerCase()
 
-		if (!needle) return users
+		const byRole = roleFilter === "all" ? users : users.filter((user) => user.role === roleFilter)
 
-		return users.filter((user) =>
+		if (!needle) return byRole
+
+		return byRole.filter((user) =>
 			[user.displayName, user.username, t(`users.roles.${user.role}`)].join(" ").toLowerCase().includes(needle)
 		)
-	}, [users, query, t])
+	}, [users, query, roleFilter, t])
 
 	const submit = async (payload: UserPayload) => {
 		try {
@@ -147,8 +155,8 @@ export default function UsersPage() {
 				</div>
 			}>
 			<section className='card overflow-hidden'>
-				<header className='border-b border-ink-200 p-4 dark:border-ink-700'>
-					<div className='relative max-w-sm'>
+				<header className='flex flex-col gap-3 border-b border-ink-200 p-4 dark:border-ink-700 sm:flex-row sm:items-center sm:justify-between'>
+					<div className='relative max-w-sm sm:flex-1'>
 						<Search
 							className='pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400'
 							aria-hidden='true'
@@ -160,6 +168,25 @@ export default function UsersPage() {
 							onChange={(event) => setQuery(event.target.value)}
 							aria-label={t("common.search")}
 						/>
+					</div>
+
+					<div role='tablist' className='flex flex-wrap gap-1 rounded-xl bg-ink-100 p-1 dark:bg-ink-900'>
+						{ROLE_FILTERS.map((value) => (
+							<button
+								key={value}
+								type='button'
+								role='tab'
+								aria-selected={roleFilter === value}
+								onClick={() => setRoleFilter(value)}
+								className={cn(
+									"rounded-lg px-2.5 py-1.5 text-xs font-medium transition",
+									roleFilter === value
+										? "bg-white text-ink-900 shadow-sm dark:bg-ink-700 dark:text-ink-50"
+										: "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100"
+								)}>
+								{t(`users.filters.${value}`)}
+							</button>
+						))}
 					</div>
 				</header>
 

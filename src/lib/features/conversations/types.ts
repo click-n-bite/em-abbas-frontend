@@ -1,6 +1,6 @@
 export type Mode = "bot" | "waiting" | "agent"
 
-export type ConversationFilter = "all" | "waiting" | "bot" | "mine" | "hidden"
+export type ConversationFilter = "all" | "waiting" | "bot" | "mine" | "hidden" | "agent"
 
 export interface Conversation {
 	id: string

@@ -71,15 +71,19 @@ const en = {
 	},
 	inbox: {
 		title: "Conversations",
-		filters: { all: "All", waiting: "Waiting", bot: "AI", mine: "Mine", hidden: "Hidden" },
-		searchPlaceholder: "Search by name or phone…",
+		filters: { all: "All", waiting: "Waiting", bot: "AI", agent: "Agent", mine: "Mine", hidden: "Hidden" },
+		searchPlaceholder: "Search by name, phone, or agent…",
 		empty: "No conversations match this filter.",
 		selectHint: "Pick a conversation to read the thread.",
 		unassigned: "Unassigned",
 		assignedTo: "Assigned to {name}",
 		you: "you",
 		unreadCount: "{n} unread",
-		hiddenEmpty: "Hidden Empty"
+		hiddenEmpty: "Hidden Empty",
+		allAgents: "All agents",
+		filterByAgent: "Filter by agent",
+		quickBlock: "Block",
+		quickUnblock: "Unblock"
 	},
 	chat: {
 		takeover: "Take over",
@@ -89,6 +93,7 @@ const en = {
 		inputPlaceholder: "Write a reply…",
 		inputLockedBot: "The AI is handling this chat. Take over to reply.",
 		inputLockedOther: "Another agent owns this conversation.",
+		inputLockedViewOnly: "You have view-only access to this conversation.",
 		send: "Send",
 		sending: "Sending…",
 		emptyThread: "No messages in this conversation yet.",
@@ -199,6 +204,7 @@ const en = {
 		onlySuperadminRole: "Only a super admin can grant the super admin role.",
 		duplicateUsername: "That username is already in use.",
 		roles: { superadmin: "Super admin", admin: "Admin", agent: "Agent" },
+		filters: { all: "All roles", superadmin: "Super admin", admin: "Admin", agent: "Agent" },
 		roleHelp: {
 			superadmin: "Full access, can manage every user and blocked country.",
 			admin: "Can manage agents and blocked countries.",

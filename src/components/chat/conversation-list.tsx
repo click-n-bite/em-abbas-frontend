@@ -5,15 +5,16 @@ import { Eye, EyeOff, Inbox, Search } from "lucide-react"
 import { useI18n } from "@/providers/i18n-provider"
 import { useAuth } from "@/providers/auth-provider"
 import { Avatar } from "@/components/ui/avatar"
-import { ModeBadge } from "@/components/ui/badges"
+import { ModeBadge, BlockedBadge } from "@/components/ui/badges"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Spinner } from "@/components/ui/spinner"
 import { cn, textDirOf } from "@/lib/utils"
 import type { Conversation } from "@/lib/types"
+import type { PortalUser } from "@/lib/features/users/types"
 
-export type InboxFilter = "all" | "bot" | "mine" | "hidden"
+export type InboxFilter = "all" | "bot" | "agent" | "mine" | "hidden"
 
-const filters: InboxFilter[] = ["all", "bot", "mine", "hidden"]
+const filters: InboxFilter[] = ["all", "bot", "agent", "mine", "hidden"]
 
 interface Props {
 	conversations: Conversation[]
@@ -25,8 +26,12 @@ interface Props {
 	onFilterChange: (filter: InboxFilter) => void
 	onSearchChange: (value: string) => void
 	onToggleHide?: (id: string, hide: boolean) => void | Promise<void>
+	onToggleBlock?: (id: string, block: boolean) => void | Promise<void>
 	onClearHidden?: () => void | Promise<void>
 	clearingHidden?: boolean
+	agents?: PortalUser[]
+	agentFilter?: string
+	onAgentFilterChange?: (agentId: string) => void
 }
 
 export function ConversationList({
@@ -38,7 +43,11 @@ export function ConversationList({
 	onSelect,
 	onFilterChange,
 	onSearchChange,
-	onToggleHide
+	onToggleHide,
+	onToggleBlock,
+	agents = [],
+	agentFilter = "all",
+	onAgentFilterChange
 }: Props) {
 	const { t, formatRelative } = useI18n()
 
@@ -53,6 +62,18 @@ export function ConversationList({
 
 		try {
 			await onToggleHide(id, hide)
+		} finally {
+			setBusyId((current) => (current === id ? null : current))
+		}
+	}
+
+	const toggleBlock = async (id: string, block: boolean) => {
+		if (!onToggleBlock) return
+
+		setBusyId(id)
+
+		try {
+			await onToggleBlock(id, block)
 		} finally {
 			setBusyId((current) => (current === id ? null : current))
 		}
@@ -77,7 +98,13 @@ export function ConversationList({
 
 				<div role='tablist' className='flex gap-1 rounded-xl bg-ink-100 p-1 dark:bg-ink-900'>
 					{filters
-						.filter((value) => (value === "hidden" ? canManageUsers : value === "mine" ? !canManageUsers : true))
+						// "Hidden" and "Agent" (all human-assigned chats, not just the caller's own) are
+						// admin/superadmin-only review tools. "Mine" only makes sense for a regular agent —
+						// admins/superadmins are view-only and can never actually own a chat (see
+						// chat-panel's canChangeMode), so it's replaced by the "Agent" tab + agent picker for them.
+						.filter((value) =>
+							value === "hidden" || value === "agent" ? canManageUsers : value === "mine" ? !canManageUsers : true
+						)
 						.map((value) => (
 							<button
 								key={value}
@@ -95,6 +122,22 @@ export function ConversationList({
 							</button>
 						))}
 				</div>
+
+				{/* Admin/superadmin only — narrows the "All"/"Agent" tabs to one agent's chats. */}
+				{agents.length > 0 && onAgentFilterChange ? (
+					<select
+						value={agentFilter}
+						onChange={(event) => onAgentFilterChange(event.target.value)}
+						aria-label={t("inbox.filterByAgent")}
+						className='input py-1.5 text-xs'>
+						<option value='all'>{t("inbox.allAgents")}</option>
+						{agents.map((user) => (
+							<option key={user.id} value={user.id}>
+								{user.displayName || user.username}
+							</option>
+						))}
+					</select>
+				) : null}
 			</div>
 
 			<div className='min-h-0 flex-1 overflow-y-auto'>
@@ -135,7 +178,12 @@ export function ConversationList({
 										className={cn(
 											"flex w-full items-start gap-3 p-3 text-start transition",
 											onToggleHide && "pe-11",
-											active ? "bg-brand-50 dark:bg-brand-900/30" : "hover:bg-ink-50 dark:hover:bg-ink-700/50"
+											conversation.blocked
+												? "bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-950/60"
+												: active
+													? "bg-brand-50 dark:bg-brand-900/30"
+													: "hover:bg-ink-50 dark:hover:bg-ink-700/50",
+											conversation.blocked && active && "ring-1 ring-inset ring-rose-300 dark:ring-rose-700"
 										)}>
 										<Avatar name={conversation.customerName} seed={conversation.phone} />
 										<span className='min-w-0 flex-1'>
@@ -171,15 +219,43 @@ export function ConversationList({
 													</span>
 												) : null}
 											</span>
-											<span className='mt-1.5 flex items-center gap-2'>
+											<span className='mt-1.5 flex flex-wrap items-center gap-2'>
 												<ModeBadge mode={conversation.mode} />
-												<span className='truncate text-[11px] text-ink-400'>
-													{conversation.assigneeId
-														? t("inbox.assignedTo", {
-																name: mine ? t("inbox.you") : (conversation.assignee?.name ?? t("common.unknown"))
-															})
-														: t("inbox.unassigned")}
-												</span>
+												{conversation.blocked ? <BlockedBadge whatsappStatus={conversation.whatsappStatus} /> : null}
+												{/* Assignment only means anything once a human has it — an AI/waiting
+												    chat has no assignee to speak of, so don't show "Unassigned" noise. */}
+												{conversation.mode === "agent" ? (
+													<span className='truncate text-[11px] text-ink-400'>
+														{conversation.assigneeId
+															? t("inbox.assignedTo", {
+																	name: mine ? t("inbox.you") : (conversation.assignee?.name ?? t("common.unknown"))
+																})
+															: t("inbox.unassigned")}
+													</span>
+												) : null}
+												{onToggleBlock ? (
+													<button
+														type='button'
+														onClick={(event) => {
+															event.stopPropagation()
+															void toggleBlock(conversation.id, !conversation.blocked)
+														}}
+														disabled={busyId === conversation.id}
+														className={cn(
+															"ms-auto text-[11px] font-medium transition",
+															conversation.blocked
+																? "text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300"
+																: "text-ink-400 hover:text-rose-600 dark:text-ink-500 dark:hover:text-rose-400"
+														)}>
+														{busyId === conversation.id ? (
+															<Spinner />
+														) : conversation.blocked ? (
+															t("inbox.quickUnblock")
+														) : (
+															t("inbox.quickBlock")
+														)}
+													</button>
+												) : null}
 											</span>
 										</span>
 									</button>
@@ -203,9 +279,9 @@ export function ConversationList({
 											{busyId === conversation.id ? (
 												<Spinner />
 											) : filter === "hidden" ? (
-												<Eye className='h-4 w-4' aria-hidden='true' />
-											) : (
 												<EyeOff className='h-4 w-4' aria-hidden='true' />
+											) : (
+												<Eye className='h-4 w-4' aria-hidden='true' />
 											)}
 										</button>
 									) : null}

@@ -701,6 +701,7 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 
 				const agentNow = agentRef.current
 
+
 				onConversationChangeRef.current({
 					...current,
 					mode: (event.mode as Conversation["mode"]) ?? current.mode,
