@@ -43,7 +43,7 @@ export function Modal({ open, title, description, onClose, children, footer, siz
 	if (!open) return null
 
 	return (
-		<div className='fixed inset-0 z-50 flex items-end justify-center bg-ink-900/50 p-4 backdrop-blur-sm sm:items-center'>
+		<div className='fixed inset-0 z-50 flex !mt-0 items-end justify-center bg-ink-900/50 p-4 backdrop-blur-sm sm:items-center'>
 			<button
 				type='button'
 				aria-label={t("common.close")}
