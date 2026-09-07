@@ -2,6 +2,7 @@ import { authApi } from "./features/auth/api"
 import { blacklistApi } from "./features/blacklist/api"
 import { blockedNumbersApi } from "./features/blocked-numbers/api"
 import { conversationsApi } from "./features/conversations/api"
+import { leadsApi } from "./features/leads/api"
 import { notifyPhonesApi } from "./features/notify-phones/api"
 import { notificationsApi } from "./features/notifications/api"
 import { usersApi } from "./features/users/api"
@@ -10,7 +11,16 @@ export { ApiError, clearSession, decodeJwt, readToken, refreshAccessToken, reque
 
 export type { RequestOptions } from "./http"
 
-export { authApi, blacklistApi, blockedNumbersApi, conversationsApi, notificationsApi, notifyPhonesApi, usersApi }
+export {
+	authApi,
+	blacklistApi,
+	blockedNumbersApi,
+	conversationsApi,
+	leadsApi,
+	notificationsApi,
+	notifyPhonesApi,
+	usersApi
+}
 
 export type { LoginResponse } from "./features/auth/types"
 
@@ -21,6 +31,8 @@ export type { CreateNotifyPhonePayload, UpdateNotifyPhonePayload } from "./featu
 export type { BlockCountryPayload } from "./features/blacklist/types"
 
 export type { BlockNumberPayload } from "./features/blocked-numbers/types"
+
+export type { CreateLeadPayload, LeadsListParams, UpdateLeadPayload } from "./features/leads/types"
 
 export const api = {
 	login: authApi.login,
@@ -38,7 +50,10 @@ export const api = {
 	unhideConversation: conversationsApi.unhide,
 	hiddenConversations: conversationsApi.listHidden,
 	notifications: notificationsApi.list,
-	markNotificationRead: notificationsApi.markRead
+	markNotificationRead: notificationsApi.markRead,
+	leads: leadsApi.list,
+	leadServices: leadsApi.services,
+	createLead: leadsApi.create
 }
 
 export const adminApi = {
@@ -55,5 +70,6 @@ export const adminApi = {
 	listNotifyPhones: notifyPhonesApi.list,
 	addNotifyPhone: notifyPhonesApi.add,
 	updateNotifyPhone: notifyPhonesApi.update,
-	deleteNotifyPhone: notifyPhonesApi.remove
+	deleteNotifyPhone: notifyPhonesApi.remove,
+	updateLead: leadsApi.update
 }

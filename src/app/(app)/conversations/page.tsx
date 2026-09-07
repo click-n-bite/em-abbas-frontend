@@ -237,7 +237,9 @@ export default function ConversationsPage() {
 			const name = conversation.customerName?.toLowerCase() ?? ""
 
 			const assigneeName = (
-				conversation.assignee?.name ?? (conversation.assigneeId ? agentNameById.get(conversation.assigneeId) : "") ?? ""
+				conversation.assignee?.name ??
+				(conversation.assigneeId ? agentNameById.get(conversation.assigneeId) : "") ??
+				""
 			).toLowerCase()
 
 			return name.includes(needle) || conversation.phone.toLowerCase().includes(needle) || assigneeName.includes(needle)
@@ -373,7 +375,9 @@ export default function ConversationsPage() {
 	const upsertBlockedStatus = useCallback(
 		(id: string, blocked: boolean, whatsappStatus: Conversation["whatsappStatus"] | null) => {
 			setConversations((current) =>
-				current.map((conversation) => (conversation.id === id ? { ...conversation, blocked, whatsappStatus } : conversation))
+				current.map((conversation) =>
+					conversation.id === id ? { ...conversation, blocked, whatsappStatus } : conversation
+				)
 			)
 			setDetached((current) => (current && current.id === id ? { ...current, blocked, whatsappStatus } : current))
 		},
