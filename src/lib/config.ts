@@ -10,6 +10,11 @@ export const SOCKJS_URL = `${API_URL}/ws`
 
 export const DEFAULT_LOCALE: Locale = process.env.NEXT_PUBLIC_DEFAULT_LOCALE === "ar" ? "ar" : "en"
 
+const RAW_MAX_NOTE_LENGTH = Number(process.env.NEXT_PUBLIC_MAX_NOTE_LENGTH)
+
+export const MAX_NOTE_LENGTH =
+	Number.isFinite(RAW_MAX_NOTE_LENGTH) && RAW_MAX_NOTE_LENGTH > 0 ? RAW_MAX_NOTE_LENGTH : 200
+
 function emailList(value: string | undefined): string[] {
 	return (value ?? "")
 		.split(",")

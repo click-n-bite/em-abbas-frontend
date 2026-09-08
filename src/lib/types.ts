@@ -39,3 +39,22 @@ export type {
 } from "./features/blocked-numbers/types"
 
 export type { CreateNotifyPhonePayload, NotifyPhone, UpdateNotifyPhonePayload } from "./features/notify-phones/types"
+
+export type {
+	CreateLeadPayload,
+	Lead,
+	LeadCreator,
+	LeadService,
+	LeadSource,
+	LeadStatus,
+	LeadsListParams,
+	LeadsPage,
+	UpdateLeadPayload
+} from "./features/leads/types"
+
+export type {
+	ActivityActorType,
+	ActivityEventType,
+	ConversationActivityEvent,
+	ConversationActivityResponse
+} from "./features/activity/types"

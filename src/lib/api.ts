@@ -2,10 +2,11 @@ import { authApi } from "./features/auth/api"
 import { blacklistApi } from "./features/blacklist/api"
 import { blockedNumbersApi } from "./features/blocked-numbers/api"
 import { conversationsApi } from "./features/conversations/api"
-import { leadsApi } from "./features/leads/api"
 import { notifyPhonesApi } from "./features/notify-phones/api"
 import { notificationsApi } from "./features/notifications/api"
 import { usersApi } from "./features/users/api"
+import { leadsApi } from "./features/leads/api"
+import { activityApi } from "./features/activity/api"
 
 export { ApiError, clearSession, decodeJwt, readToken, refreshAccessToken, request } from "./http"
 
@@ -16,10 +17,11 @@ export {
 	blacklistApi,
 	blockedNumbersApi,
 	conversationsApi,
-	leadsApi,
 	notificationsApi,
 	notifyPhonesApi,
-	usersApi
+	usersApi,
+	leadsApi,
+	activityApi
 }
 
 export type { LoginResponse } from "./features/auth/types"
@@ -32,7 +34,9 @@ export type { BlockCountryPayload } from "./features/blacklist/types"
 
 export type { BlockNumberPayload } from "./features/blocked-numbers/types"
 
-export type { CreateLeadPayload, LeadsListParams, UpdateLeadPayload } from "./features/leads/types"
+export type { CreateLeadPayload, Lead, LeadService, LeadsListParams, LeadsPage, UpdateLeadPayload } from "./features/leads/types"
+
+export type { ConversationActivityEvent, ConversationActivityResponse } from "./features/activity/types"
 
 export const api = {
 	login: authApi.login,
@@ -53,7 +57,8 @@ export const api = {
 	markNotificationRead: notificationsApi.markRead,
 	leads: leadsApi.list,
 	leadServices: leadsApi.services,
-	createLead: leadsApi.create
+	createLead: leadsApi.create,
+	conversationActivity: activityApi.get
 }
 
 export const adminApi = {

@@ -7,6 +7,7 @@ import { PhoneInput } from "@/components/phone-input"
 import { useI18n } from "@/providers/i18n-provider"
 import { parsePhone, type CountryCode } from "@/lib/countries"
 import type { BlockNumberPayload } from "@/lib/api"
+import { MAX_NOTE_LENGTH } from "@/lib/config"
 
 interface Props {
 	open: boolean
@@ -112,7 +113,7 @@ export function BlockNumberFormModal({ open, initialPhone, onClose, onSubmit }: 
 						value={reason}
 						onChange={(event) => setReason(event.target.value)}
 						placeholder={t("blockedNumbers.reasonPlaceholder")}
-						maxLength={255}
+						maxLength={MAX_NOTE_LENGTH}
 						autoComplete='off'
 					/>
 				</div>

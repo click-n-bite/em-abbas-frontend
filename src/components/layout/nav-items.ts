@@ -2,6 +2,7 @@ import {
 	Ban,
 	Bell,
 	LayoutDashboard,
+	Logs,
 	MessageSquare,
 	PhoneOff,
 	Settings,
@@ -25,6 +26,7 @@ export const navItems: NavItem[] = [
 	{ href: "/users", labelKey: "nav.users", icon: Users, roles: ["superadmin", "admin"] },
 	{ href: "/leads", labelKey: "nav.leads", icon: UserRoundPlus },
 	{ href: "/blacklist", labelKey: "nav.blacklist", icon: Ban, roles: ["superadmin", "admin"] },
+	{ href: "/logs", labelKey: "nav.logs", icon: Logs, roles: ["superadmin", "admin"] },
 	{
 		href: "/blocked-numbers",
 		labelKey: "nav.blockedNumbers",

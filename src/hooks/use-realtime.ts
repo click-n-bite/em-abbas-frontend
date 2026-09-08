@@ -90,8 +90,7 @@ export function useRealtime({ topics, onEvent, enabled = true }: Options): Conne
 			subsRef.current.forEach((sub) => {
 				try {
 					sub.unsubscribe()
-				} catch {
-				}
+				} catch {}
 			})
 			subsRef.current = []
 			void client.deactivate()

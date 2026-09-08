@@ -9,6 +9,8 @@ import {
 	Bot,
 	Check,
 	CheckCheck,
+	ChevronDown,
+	ChevronUp,
 	Clock,
 	Contact,
 	Download,
@@ -18,6 +20,7 @@ import {
 	EyeOff,
 	FileText,
 	Headphones,
+	History,
 	KeyRound,
 	ListChecks,
 	MapPin,
@@ -26,15 +29,18 @@ import {
 	MoreVertical,
 	MousePointerClick,
 	Paperclip,
+	Search,
 	Send,
 	SendHorizontal,
 	ShieldOff,
 	Trash2,
 	Undo2,
 	UserRound,
-	Workflow
+	UserRoundPlus,
+	Workflow,
+	X
 } from "lucide-react"
-import { adminApi, api } from "@/lib/api"
+import { adminApi, api, ApiError } from "@/lib/api"
 import { errorDetail, errorKey } from "@/lib/errors"
 import { cn, colorFromString, isToday, isYesterday, textDirOf, uuid } from "@/lib/utils"
 import { useI18n } from "@/providers/i18n-provider"
@@ -46,6 +52,8 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { Spinner } from "@/components/ui/spinner"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { BlockNumberFormModal } from "@/components/blocked-numbers/block-number-form-modal"
+import { LeadFormModal } from "@/components/leads/lead-form-modal"
+import { ActivityPanel } from "@/components/activity/activity-panel"
 import { useRealtime, type ConnectionState } from "@/hooks/use-realtime"
 import type { Conversation, Message, RealtimeEvent } from "@/lib/types"
 import { WhatsAppAudioPlayer } from "./audio-player"
@@ -527,6 +535,18 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 
 	const [hideBusy, setHideBusy] = useState(false)
 
+	const [activeTab, setActiveTab] = useState<"messages" | "activity">("messages")
+
+	const [searchOpen, setSearchOpen] = useState(false)
+
+	const [searchQuery, setSearchQuery] = useState("")
+
+	const [searchActiveIndex, setSearchActiveIndex] = useState(0)
+
+	const [leadModalOpen, setLeadModalOpen] = useState(false)
+
+	const messageRefs = useRef(new Map<string, HTMLDivElement>())
+
 	const menuRef = useRef<HTMLDivElement>(null)
 
 	const scrollRef = useRef<HTMLDivElement>(null)
@@ -577,6 +597,11 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 		setBlockModalOpen(false)
 		setPendingDelete(false)
 		setPendingClear(false)
+		setActiveTab("messages")
+		setSearchOpen(false)
+		setSearchQuery("")
+		setSearchActiveIndex(0)
+		setLeadModalOpen(false)
 	}, [conversationId])
 
 	useEffect(() => {
@@ -701,7 +726,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 
 				const agentNow = agentRef.current
 
-
 				onConversationChangeRef.current({
 					...current,
 					mode: (event.mode as Conversation["mode"]) ?? current.mode,
@@ -794,6 +818,85 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 			controller.abort()
 		}
 	}, [blocked, phoneForBlockLookup])
+
+	const trimmedSearchQuery = searchQuery.trim().toLowerCase()
+
+	const searchMatches = useMemo(() => {
+		if (!trimmedSearchQuery) return []
+
+		return messages
+			.filter((message) => message.text?.toLowerCase().includes(trimmedSearchQuery))
+			.map((message) => message.id)
+	}, [messages, trimmedSearchQuery])
+
+	useEffect(() => {
+		setSearchActiveIndex(searchMatches.length > 0 ? searchMatches.length - 1 : 0)
+	}, [trimmedSearchQuery, searchMatches.length])
+
+	useEffect(() => {
+		if (!searchOpen || searchMatches.length === 0) return
+
+		const id = searchMatches[searchActiveIndex]
+
+		const node = id ? messageRefs.current.get(id) : undefined
+
+		node?.scrollIntoView({ behavior: "smooth", block: "center" })
+	}, [searchOpen, searchMatches, searchActiveIndex])
+
+	const goToPreviousMatch = () => {
+		if (searchMatches.length === 0) return
+
+		setSearchActiveIndex((current) => (current - 1 + searchMatches.length) % searchMatches.length)
+	}
+
+	const goToNextMatch = () => {
+		if (searchMatches.length === 0) return
+
+		setSearchActiveIndex((current) => (current + 1) % searchMatches.length)
+	}
+
+	const closeSearch = () => {
+		setSearchOpen(false)
+		setSearchQuery("")
+	}
+
+	function highlightMatches(text: string, isActiveMatch: boolean): React.ReactNode {
+		if (!trimmedSearchQuery) return text
+
+		const lowerText = text.toLowerCase()
+
+		const parts: React.ReactNode[] = []
+
+		let cursor = 0
+
+		let index = lowerText.indexOf(trimmedSearchQuery)
+
+		if (index === -1) return text
+
+		let key = 0
+
+		while (index !== -1) {
+			if (index > cursor) parts.push(text.slice(cursor, index))
+
+			parts.push(
+				<mark
+					key={key++}
+					className={cn(
+						"rounded-sm px-0.5",
+						isActiveMatch ? "bg-amber-400 text-ink-900" : "bg-amber-200/70 text-ink-900"
+					)}>
+					{text.slice(index, index + trimmedSearchQuery.length)}
+				</mark>
+			)
+
+			cursor = index + trimmedSearchQuery.length
+			index = lowerText.indexOf(trimmedSearchQuery, cursor)
+		}
+
+		if (cursor < text.length) parts.push(text.slice(cursor))
+
+		return parts
+	}
 
 	const [uploading, setUploading] = useState(false)
 
@@ -1135,6 +1238,23 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 		}
 	}
 
+	const submitLead = async (payload: { conversationId: string; serviceId: number; note?: string }) => {
+		try {
+			await api.createLead(payload)
+			push(t("chat.leadAdded"), "success")
+			setLeadModalOpen(false)
+			setMenuOpen(false)
+		} catch (error) {
+			if (error instanceof ApiError && error.status === 409) {
+				push(t("chat.leadAlreadyOpen"), "error")
+			} else {
+				push(errorDetail(error) ?? t(errorKey(error)), "error")
+			}
+
+			throw error
+		}
+	}
+
 	const confirmClear = async () => {
 		if (!conversationId || !conversation) return
 
@@ -1230,6 +1350,26 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 						</button>
 					) : null}
 
+					<button
+						type='button'
+						className='btn-secondary px-2.5'
+						onClick={() => setSearchOpen((value) => !value)}
+						aria-pressed={searchOpen}
+						aria-label={t("chat.search")}
+						title={t("chat.search")}>
+						<Search className='h-4 w-4' aria-hidden='true' />
+					</button>
+
+					<button
+						type='button'
+						className='btn-secondary px-2.5'
+						onClick={() => setLeadModalOpen(true)}
+						aria-label={t("chat.addLead")}
+						title={t("chat.addLead")}>
+						<UserRoundPlus className='h-4 w-4' aria-hidden='true' />
+						<span className='hidden lg:inline'>{t("chat.addLead")}</span>
+					</button>
+
 					{canManageUsers ? (
 						<div ref={menuRef} className='relative'>
 							<button
@@ -1294,231 +1434,351 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 				</div>
 			</header>
 
-			<div ref={scrollRef} className='min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6'>
-				{loading ? (
-					<div className='flex flex-col gap-3'>
-						{[0, 1, 2, 3].map((index) => (
-							<span key={index} className={cn("skeleton h-12", index % 2 === 0 ? "me-auto w-2/3" : "ms-auto w-1/2")} />
-						))}
-					</div>
-				) : failure ? (
-					<EmptyState icon={<AlertCircle className='h-5 w-5' aria-hidden='true' />} title={t(failure)} />
-				) : messages.length === 0 ? (
-					<EmptyState icon={<MessageSquare className='h-5 w-5' aria-hidden='true' />} title={t("chat.emptyThread")} />
-				) : (
-					messages.map((message) => {
-						const outbound = message.direction === "outbound"
+			{canManageUsers ? (
+				<div
+					role='tablist'
+					className='flex flex-shrink-0 gap-1 border-b border-ink-200 bg-white px-3 pt-2 dark:border-ink-700 dark:bg-ink-800'>
+					<button
+						type='button'
+						role='tab'
+						aria-selected={activeTab === "messages"}
+						onClick={() => setActiveTab("messages")}
+						className={cn(
+							"flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition",
+							activeTab === "messages"
+								? "border-b-2 border-brand-600 text-brand-700 dark:text-brand-300"
+								: "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100"
+						)}>
+						<MessageSquare className='h-3.5 w-3.5' aria-hidden='true' />
+						{t("chat.tabMessages")}
+					</button>
+					<button
+						type='button'
+						role='tab'
+						aria-selected={activeTab === "activity"}
+						onClick={() => setActiveTab("activity")}
+						className={cn(
+							"flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition",
+							activeTab === "activity"
+								? "border-b-2 border-brand-600 text-brand-700 dark:text-brand-300"
+								: "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100"
+						)}>
+						<History className='h-3.5 w-3.5' aria-hidden='true' />
+						{t("chat.tabActivity")}
+					</button>
+				</div>
+			) : null}
 
-						const StatusIcon = statusIcon(message.status)
+			{searchOpen && activeTab === "messages" ? (
+				<div className='flex flex-shrink-0 items-center gap-2 border-b border-ink-200 bg-white px-3 py-2 dark:border-ink-700 dark:bg-ink-800'>
+					<Search className='h-4 w-4 flex-shrink-0 text-ink-400' aria-hidden='true' />
+					<input
+						autoFocus
+						value={searchQuery}
+						onChange={(event) => setSearchQuery(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === "Enter") {
+								event.preventDefault()
 
-						const agentKey = message.source === "agent" ? agentKeyOf(message) : null
+								if (event.shiftKey) goToPreviousMatch()
+								else goToNextMatch()
+							}
 
-						const fromMe =
-							agentKey !== null && (agentKey === agent?.id || agentKey === agent?.name || agentKey === agent?.email)
+							if (event.key === "Escape") closeSearch()
+						}}
+						placeholder={t("chat.searchPlaceholder")}
+						aria-label={t("chat.searchPlaceholder")}
+						className='input h-8 flex-1 py-1'
+					/>
+					<span className='flex-shrink-0 whitespace-nowrap text-xs text-ink-400'>
+						{trimmedSearchQuery
+							? searchMatches.length > 0
+								? t("chat.searchResultCount", { current: searchActiveIndex + 1, total: searchMatches.length })
+								: t("chat.searchNoResults")
+							: null}
+					</span>
+					<button
+						type='button'
+						className='btn-ghost h-8 w-8 flex-shrink-0 p-0'
+						onClick={goToPreviousMatch}
+						disabled={searchMatches.length === 0}
+						aria-label={t("chat.searchPrevious")}
+						title={t("chat.searchPrevious")}>
+						<ChevronUp className='h-4 w-4' aria-hidden='true' />
+					</button>
+					<button
+						type='button'
+						className='btn-ghost h-8 w-8 flex-shrink-0 p-0'
+						onClick={goToNextMatch}
+						disabled={searchMatches.length === 0}
+						aria-label={t("chat.searchNext")}
+						title={t("chat.searchNext")}>
+						<ChevronDown className='h-4 w-4' aria-hidden='true' />
+					</button>
+					<button
+						type='button'
+						className='btn-ghost h-8 w-8 flex-shrink-0 p-0'
+						onClick={closeSearch}
+						aria-label={t("chat.searchClose")}
+						title={t("chat.searchClose")}>
+						<X className='h-4 w-4' aria-hidden='true' />
+					</button>
+				</div>
+			) : null}
 
-						const tint =
-							outbound && agentKey && !fromMe && message.status !== "failed" ? colorFromString(agentKey) : null
+			{activeTab === "activity" ? (
+				<ActivityPanel conversationId={conversation.id} active={activeTab === "activity"} />
+			) : (
+				<div ref={scrollRef} className='min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6'>
+					{loading ? (
+						<div className='flex flex-col gap-3'>
+							{[0, 1, 2, 3].map((index) => (
+								<span
+									key={index}
+									className={cn("skeleton h-12", index % 2 === 0 ? "me-auto w-2/3" : "ms-auto w-1/2")}
+								/>
+							))}
+						</div>
+					) : failure ? (
+						<EmptyState icon={<AlertCircle className='h-5 w-5' aria-hidden='true' />} title={t(failure)} />
+					) : messages.length === 0 ? (
+						<EmptyState icon={<MessageSquare className='h-5 w-5' aria-hidden='true' />} title={t("chat.emptyThread")} />
+					) : (
+						messages.map((message) => {
+							const outbound = message.direction === "outbound"
 
-						const dayLabel = isToday(message.createdAt)
-							? t("chat.today")
-							: isYesterday(message.createdAt)
-								? t("chat.yesterday")
-								: formatDateTime(message.createdAt).split(",")[0]
+							const StatusIcon = statusIcon(message.status)
 
-						const showDay = dayLabel !== lastDay
+							const agentKey = message.source === "agent" ? agentKeyOf(message) : null
 
-						lastDay = dayLabel
+							const fromMe =
+								agentKey !== null && (agentKey === agent?.id || agentKey === agent?.name || agentKey === agent?.email)
 
-						return (
-							<div key={message.id}>
-								{showDay ? (
-									<p className='my-4 text-center text-[11px] font-medium uppercase tracking-wide text-ink-400'>
-										{dayLabel}
-									</p>
-								) : null}
-								<div className={cn("flex py-1", outbound ? "justify-end" : "justify-start")}>
-									<div
-										style={tint ? { backgroundColor: tint } : undefined}
-										className={cn(
-											"max-w-[85%] animate-fade-in rounded-2xl px-3 py-2 text-sm shadow-sm sm:max-w-[70%]",
-											outbound
-												? cn("bubble-out text-white", !tint && "bg-brand-600")
-												: "bubble-in bg-white text-ink-800 dark:bg-ink-800 dark:text-ink-100",
-											message.status === "failed" && "bg-rose-600"
-										)}>
-										{outbound && agentKey && !fromMe ? (
-											<p className='mb-1 flex items-center gap-1 text-[11px] font-semibold text-white/90'>
-												<UserRound className='h-3 w-3' aria-hidden='true' />
-												{message.agentName?.trim() || t("chat.otherAgent")}
-											</p>
-										) : null}
+							const tint =
+								outbound && agentKey && !fromMe && message.status !== "failed" ? colorFromString(agentKey) : null
 
-										{message.source === "bot" || (outbound && message.source !== "agent") ? (
-											<p
-												className={cn(
-													"mb-1 flex items-center gap-1 text-[11px] font-medium",
-													outbound ? "text-brand-100" : "text-ink-400"
-												)}>
-												<Bot className='h-3 w-3' aria-hidden='true' />
-												{t("chat.bot")}
-											</p>
-										) : null}
+							const dayLabel = isToday(message.createdAt)
+								? t("chat.today")
+								: isYesterday(message.createdAt)
+									? t("chat.yesterday")
+									: formatDateTime(message.createdAt).split(",")[0]
 
-										<MessageMedia message={message} outbound={outbound} />
+							const showDay = dayLabel !== lastDay
 
-										<MessageTapHint message={message} outbound={outbound} />
+							lastDay = dayLabel
 
-										{RICH_TYPES.has(message.type) ? (
-											<MessageRichContent message={message} outbound={outbound} />
-										) : message.text || (!message.mediaId && !message.filename) ? (
-											<p dir={textDirOf(message.text)} className='whitespace-pre-wrap break-words'>
-												{message.text ?? `[${message.type}]`}
-											</p>
-										) : null}
+							const isActiveSearchMatch =
+								trimmedSearchQuery.length > 0 && searchMatches[searchActiveIndex] === message.id
 
-										{message.type !== "audio" ? (
-											<p
-												className={cn(
-													"mt-1 flex items-center justify-end gap-1 text-[10px]",
-													outbound ? "text-brand-100/90" : "text-ink-400"
-												)}>
-												<span dir='ltr'>{formatTime(message.createdAt)}</span>
+							const isSearchMatch = trimmedSearchQuery.length > 0 && searchMatches.includes(message.id)
 
-												{outbound ? (
-													<>
-														<StatusIcon className={cn("h-3 w-3", statusTint(message.status))} aria-hidden='true' />
-														<span className='sr-only'>
-															{t(`chat.status${message.status.charAt(0).toUpperCase()}${message.status.slice(1)}`)}
-														</span>
-													</>
-												) : null}
-											</p>
-										) : null}
+							return (
+								<div
+									key={message.id}
+									ref={(node) => {
+										if (node) messageRefs.current.set(message.id, node)
+										else messageRefs.current.delete(message.id)
+									}}>
+									{showDay ? (
+										<p className='my-4 text-center text-[11px] font-medium uppercase tracking-wide text-ink-400'>
+											{dayLabel}
+										</p>
+									) : null}
+									<div className={cn("flex py-1", outbound ? "justify-end" : "justify-start")}>
+										<div
+											style={tint ? { backgroundColor: tint } : undefined}
+											className={cn(
+												"max-w-[85%] animate-fade-in rounded-2xl px-3 py-2 text-sm shadow-sm sm:max-w-[70%]",
+												outbound
+													? cn("bubble-out text-white", !tint && "bg-brand-600")
+													: "bubble-in bg-white text-ink-800 dark:bg-ink-800 dark:text-ink-100",
+												message.status === "failed" && "bg-rose-600",
+												isSearchMatch && "ring-2 ring-amber-400",
+												isActiveSearchMatch && "ring-2 ring-amber-500"
+											)}>
+											{outbound && agentKey && !fromMe ? (
+												<p className='mb-1 flex items-center gap-1 text-[11px] font-semibold text-white/90'>
+													<UserRound className='h-3 w-3' aria-hidden='true' />
+													{message.agentName?.trim() || t("chat.otherAgent")}
+												</p>
+											) : null}
+
+											{message.source === "bot" || (outbound && message.source !== "agent") ? (
+												<p
+													className={cn(
+														"mb-1 flex items-center gap-1 text-[11px] font-medium",
+														outbound ? "text-brand-100" : "text-ink-400"
+													)}>
+													<Bot className='h-3 w-3' aria-hidden='true' />
+													{t("chat.bot")}
+												</p>
+											) : null}
+
+											<MessageMedia message={message} outbound={outbound} />
+
+											<MessageTapHint message={message} outbound={outbound} />
+
+											{RICH_TYPES.has(message.type) ? (
+												<MessageRichContent message={message} outbound={outbound} />
+											) : message.text || (!message.mediaId && !message.filename) ? (
+												<p dir={textDirOf(message.text)} className='whitespace-pre-wrap break-words'>
+													{message.text ? highlightMatches(message.text, isActiveSearchMatch) : `[${message.type}]`}
+												</p>
+											) : null}
+
+											{message.type !== "audio" ? (
+												<p
+													className={cn(
+														"mt-1 flex items-center justify-end gap-1 text-[10px]",
+														outbound ? "text-brand-100/90" : "text-ink-400"
+													)}>
+													<span dir='ltr'>{formatTime(message.createdAt)}</span>
+
+													{outbound ? (
+														<>
+															<StatusIcon className={cn("h-3 w-3", statusTint(message.status))} aria-hidden='true' />
+															<span className='sr-only'>
+																{t(`chat.status${message.status.charAt(0).toUpperCase()}${message.status.slice(1)}`)}
+															</span>
+														</>
+													) : null}
+												</p>
+											) : null}
+										</div>
 									</div>
 								</div>
-							</div>
-						)
-					})
-				)}
-			</div>
+							)
+						})
+					)}
+				</div>
+			)}
 
-			<footer className='flex-shrink-0 border-t border-ink-200 p-3 dark:border-ink-700'>
-				{blocked ? (
-					<div className='flex flex-wrap items-center justify-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-center text-xs text-rose-700 dark:bg-rose-950 dark:text-rose-200'>
-						<ShieldOff className='h-3.5 w-3.5 flex-shrink-0' aria-hidden='true' />
-						<span>{lockedReason}</span>
-						<button
-							type='button'
-							onClick={() => void handleUnblock()}
-							disabled={unblocking || !blockedEntryId}
-							className='btn-ghost h-7 flex-shrink-0 px-2.5 py-0 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-rose-200 dark:hover:bg-rose-900'>
-							{unblocking ? <Spinner /> : <Undo2 className='h-3.5 w-3.5' aria-hidden='true' />}
-							{unblocking ? t("chat.unblocking") : t("chat.unblockContact")}
-						</button>
-					</div>
-				) : lockedReason ? (
-					<p className='rounded-xl bg-ink-100 px-3 py-2 text-center text-xs text-ink-500 dark:bg-ink-900 dark:text-ink-400'>
-						{lockedReason}
-					</p>
-				) : recording ? (
-					<div className='flex items-center gap-2'>
-						<button
-							type='button'
-							onClick={() => finishRecording(false)}
-							className='btn-ghost h-[2.6rem] flex-shrink-0 px-3 text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950'
-							aria-label={t("chat.cancelRecording")}
-							title={t("chat.cancelRecording")}>
-							<Trash2 className='h-4 w-4' aria-hidden='true' />
-						</button>
-
-						<div className='input flex h-[2.6rem] flex-1 items-center gap-2.5 py-0'>
-							<span className='relative flex h-2.5 w-2.5 flex-shrink-0' aria-hidden='true'>
-								<span className='absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-75' />
-								<span className='relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-600' />
-							</span>
-							<span dir='ltr' className='text-sm font-medium tabular-nums text-ink-700 dark:text-ink-200'>
-								{formatRecordTime(recordSeconds)}
-							</span>
-							<span className='truncate text-xs text-ink-400'>{t("chat.recording")}</span>
+			{activeTab === "messages" ? (
+				<footer className='flex-shrink-0 border-t border-ink-200 p-3 dark:border-ink-700'>
+					{blocked ? (
+						<div className='flex flex-wrap items-center justify-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-center text-xs text-rose-700 dark:bg-rose-950 dark:text-rose-200'>
+							<ShieldOff className='h-3.5 w-3.5 flex-shrink-0' aria-hidden='true' />
+							<span>{lockedReason}</span>
+							<button
+								type='button'
+								onClick={() => void handleUnblock()}
+								disabled={unblocking || !blockedEntryId}
+								className='btn-ghost h-7 flex-shrink-0 px-2.5 py-0 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-rose-200 dark:hover:bg-rose-900'>
+								{unblocking ? <Spinner /> : <Undo2 className='h-3.5 w-3.5' aria-hidden='true' />}
+								{unblocking ? t("chat.unblocking") : t("chat.unblockContact")}
+							</button>
 						</div>
-
-						<button
-							type='button'
-							onClick={() => finishRecording(true)}
-							className='btn-primary h-[2.6rem] flex-shrink-0 px-4'
-							aria-label={t("chat.sendRecording")}
-							title={t("chat.sendRecording")}>
-							<SendHorizontal className='h-4 w-4' aria-hidden='true' />
-						</button>
-					</div>
-				) : (
-					<div className='flex items-end gap-2'>
-						<input
-							ref={fileInputRef}
-							type='file'
-							className='hidden'
-							onChange={(event) => {
-								const file = event.target.files?.[0]
-
-								if (file) void sendFile(file)
-							}}
-						/>
-						<button
-							type='button'
-							className='btn-secondary h-[2.6rem] flex-shrink-0 px-3'
-							onClick={() => fileInputRef.current?.click()}
-							disabled={!canReply || uploading}
-							aria-label={t("chat.attach")}
-							title={t("chat.attach")}>
-							{uploading ? <Spinner /> : <Paperclip className='h-4 w-4' aria-hidden='true' />}
-						</button>
-						<textarea
-							ref={textareaRef}
-							rows={1}
-							value={draft}
-							onChange={(event) => setDraft(event.target.value)}
-							onKeyDown={(event) => {
-								if (event.key === "Enter" && !event.shiftKey) {
-									event.preventDefault()
-									void send()
-								}
-							}}
-							placeholder={t("chat.inputPlaceholder")}
-							aria-label={t("chat.inputPlaceholder")}
-							disabled={!canReply}
-							className='input max-h-32 min-h-[2.6rem] resize-y py-2.5'
-						/>
-						{draft.trim().length === 0 && recordingSupported ? (
+					) : lockedReason ? (
+						<p className='rounded-xl bg-ink-100 px-3 py-2 text-center text-xs text-ink-500 dark:bg-ink-900 dark:text-ink-400'>
+							{lockedReason}
+						</p>
+					) : recording ? (
+						<div className='flex items-center gap-2'>
 							<button
 								type='button'
+								onClick={() => finishRecording(false)}
+								className='btn-ghost h-[2.6rem] flex-shrink-0 px-3 text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950'
+								aria-label={t("chat.cancelRecording")}
+								title={t("chat.cancelRecording")}>
+								<Trash2 className='h-4 w-4' aria-hidden='true' />
+							</button>
+
+							<div className='input flex h-[2.6rem] flex-1 items-center gap-2.5 py-0'>
+								<span className='relative flex h-2.5 w-2.5 flex-shrink-0' aria-hidden='true'>
+									<span className='absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-75' />
+									<span className='relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-600' />
+								</span>
+								<span dir='ltr' className='text-sm font-medium tabular-nums text-ink-700 dark:text-ink-200'>
+									{formatRecordTime(recordSeconds)}
+								</span>
+								<span className='truncate text-xs text-ink-400'>{t("chat.recording")}</span>
+							</div>
+
+							<button
+								type='button'
+								onClick={() => finishRecording(true)}
 								className='btn-primary h-[2.6rem] flex-shrink-0 px-4'
-								onClick={() => void startRecording()}
+								aria-label={t("chat.sendRecording")}
+								title={t("chat.sendRecording")}>
+								<SendHorizontal className='h-4 w-4' aria-hidden='true' />
+							</button>
+						</div>
+					) : (
+						<div className='flex items-end gap-2'>
+							<input
+								ref={fileInputRef}
+								type='file'
+								className='hidden'
+								onChange={(event) => {
+									const file = event.target.files?.[0]
+
+									if (file) void sendFile(file)
+								}}
+							/>
+							<button
+								type='button'
+								className='btn-secondary h-[2.6rem] flex-shrink-0 px-3'
+								onClick={() => fileInputRef.current?.click()}
 								disabled={!canReply || uploading}
-								aria-label={t("chat.recordVoice")}
-								title={t("chat.recordVoice")}>
-								<Mic className='h-4 w-4' aria-hidden='true' />
+								aria-label={t("chat.attach")}
+								title={t("chat.attach")}>
+								{uploading ? <Spinner /> : <Paperclip className='h-4 w-4' aria-hidden='true' />}
 							</button>
-						) : (
-							<button
-								type='button'
-								className='btn-primary h-[2.6rem] flex-shrink-0 px-4'
-								onClick={() => void send()}
-								disabled={!canReply || sending || uploading || draft.trim().length === 0}
-								aria-label={t("chat.send")}>
-								{sending ? <Spinner /> : <Send className='h-4 w-4' aria-hidden='true' />}
-								<span className='hidden sm:inline'>{sending ? t("chat.sending") : t("chat.send")}</span>
-							</button>
-						)}
-					</div>
-				)}
-				{lockedReason || recording ? null : <p className='mt-1.5 text-[11px] text-ink-400'>{t("chat.typingHint")}</p>}
-			</footer>
+							<textarea
+								ref={textareaRef}
+								rows={1}
+								value={draft}
+								onChange={(event) => setDraft(event.target.value)}
+								onKeyDown={(event) => {
+									if (event.key === "Enter" && !event.shiftKey) {
+										event.preventDefault()
+										void send()
+									}
+								}}
+								placeholder={t("chat.inputPlaceholder")}
+								aria-label={t("chat.inputPlaceholder")}
+								disabled={!canReply}
+								className='input max-h-32 min-h-[2.6rem] resize-y py-2.5'
+							/>
+							{draft.trim().length === 0 && recordingSupported ? (
+								<button
+									type='button'
+									className='btn-primary h-[2.6rem] flex-shrink-0 px-4'
+									onClick={() => void startRecording()}
+									disabled={!canReply || uploading}
+									aria-label={t("chat.recordVoice")}
+									title={t("chat.recordVoice")}>
+									<Mic className='h-4 w-4' aria-hidden='true' />
+								</button>
+							) : (
+								<button
+									type='button'
+									className='btn-primary h-[2.6rem] flex-shrink-0 px-4'
+									onClick={() => void send()}
+									disabled={!canReply || sending || uploading || draft.trim().length === 0}
+									aria-label={t("chat.send")}>
+									{sending ? <Spinner /> : <Send className='h-4 w-4' aria-hidden='true' />}
+									<span className='hidden sm:inline'>{sending ? t("chat.sending") : t("chat.send")}</span>
+								</button>
+							)}
+						</div>
+					)}
+					{lockedReason || recording ? null : <p className='mt-1.5 text-[11px] text-ink-400'>{t("chat.typingHint")}</p>}
+				</footer>
+			) : null}
 
 			<BlockNumberFormModal
 				open={blockModalOpen}
 				initialPhone={conversation.phone}
 				onClose={() => setBlockModalOpen(false)}
 				onSubmit={submitBlock}
+			/>
+
+			<LeadFormModal
+				open={leadModalOpen}
+				onClose={() => setLeadModalOpen(false)}
+				onSubmit={submitLead}
+				fixedConversation={{ id: conversation.id, label: conversation.customerName?.trim() || conversation.phone }}
 			/>
 
 			<ConfirmDialog
