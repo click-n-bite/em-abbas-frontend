@@ -107,7 +107,7 @@ function LoginForm() {
 									type='button'
 									onClick={() => setReveal((value) => !value)}
 									aria-label={t(reveal ? "login.hidePassword" : "login.showPassword")}
-									className='absolute inset-y-0 end-2 my-auto flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition hover:bg-ink-100 hover:text-ink-700 dark:hover:bg-ink-700 dark:hover:text-ink-100'>
+									className='absolute inset-y-0 end-2 rtl:start-2 my-auto flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition hover:bg-ink-100 hover:text-ink-700 dark:hover:bg-ink-700 dark:hover:text-ink-100'>
 									{reveal ? (
 										<EyeOff className='h-4 w-4' aria-hidden='true' />
 									) : (
@@ -129,16 +129,7 @@ function LoginForm() {
 							{busy ? <Spinner /> : null}
 							{t(busy ? "login.submitting" : "login.submit")}
 						</button>
-
-						<p className='flex items-center gap-2 text-xs text-ink-500 dark:text-ink-400'>
-							<ShieldCheck className='h-3.5 w-3.5 shrink-0' aria-hidden='true' />
-							{t("login.demoHint")}
-						</p>
 					</form>
-
-					<p className='mt-4 text-center text-xs text-ink-400 dark:text-ink-500' dir='ltr'>
-						{t("login.apiTarget")}: {API_URL}
-					</p>
 				</div>
 			</div>
 		</div>
