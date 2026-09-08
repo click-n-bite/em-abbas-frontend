@@ -7,7 +7,7 @@ import { useI18n } from "@/providers/i18n-provider"
 import { leadsApi } from "@/lib/api"
 import type { LeadService } from "@/lib/types"
 import { MAX_NOTE_LENGTH } from "@/lib/config"
-import { Search, ChevronDown, X } from "lucide-react"
+import { Search, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ConversationOption {
