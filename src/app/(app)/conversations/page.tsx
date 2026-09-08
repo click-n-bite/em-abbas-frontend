@@ -525,9 +525,7 @@ export default function ConversationsPage() {
 						"min-h-0 overflow-hidden transition-transform duration-300 ease-out",
 						"fixed inset-0 z-40 bg-white dark:bg-ink-900",
 						"lg:static lg:z-auto lg:translate-x-0 lg:rounded-2xl lg:border lg:border-ink-200 lg:bg-white lg:shadow-sm lg:transition-none lg:dark:border-ink-700 lg:dark:bg-ink-800",
-						selected
-							? "translate-x-0"
-							: "pointer-events-none translate-x-full lg:pointer-events-auto rtl:-translate-x-full"
+						selected ? "translate-x-0" : "pointer-events-none translate-x-full lg:pointer-events-auto"
 					)}>
 					<ChatPanel
 						conversation={selected}
