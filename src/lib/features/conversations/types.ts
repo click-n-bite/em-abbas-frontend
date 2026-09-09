@@ -22,6 +22,8 @@ export interface Conversation {
 	blocked?: boolean
 	whatsappStatus?: "blocked" | "failed" | "pending" | "unblocked" | null
 	hidden?: boolean
+	metaCustomerName: string | null
+	nameOverridden: boolean
 }
 
 export type MessageType =

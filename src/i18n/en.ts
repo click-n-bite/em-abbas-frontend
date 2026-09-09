@@ -40,7 +40,7 @@ const en = {
 		blacklist: "Blocked countries",
 		blockedNumbers: "Blocked numbers",
 		notifyPhones: "Notification numbers",
-		logs: "Logs",
+		logs: "Activity logs",
 		settings: "Settings",
 		dashboard: "Overview"
 	},
@@ -84,7 +84,8 @@ const en = {
 		allAgents: "All agents",
 		filterByAgent: "Filter by agent",
 		quickBlock: "Block",
-		quickUnblock: "Unblock"
+		quickUnblock: "Unblock",
+		exportContacts: "Export Contacts"
 	},
 	chat: {
 		takeover: "Take over",
@@ -178,7 +179,10 @@ const en = {
 		leadAdded: "Lead added.",
 		leadAlreadyOpen: "This chat already has an open lead for that service.",
 		tabMessages: "Messages",
-		tabActivity: "Activity"
+		tabActivity: "Activity",
+		nameUpdated: "Chat name updated",
+		renameHint: "Enter a new name for the chat",
+		resetName: "Reset name"
 	},
 	mode: { bot: "AI", waiting: "Waiting", agent: "Agent" },
 	notifications: {
@@ -368,7 +372,7 @@ const en = {
 		panelTitle: "Conversation activity",
 		empty: "No activity recorded for this conversation yet.",
 		forbidden: "Only super admins and admins can view conversation activity.",
-		title: "Activity Log", 
+		title: "Activity Log",
 		subtitle: "All platform events and interactions",
 		searchPlaceholder: "Search activity…",
 		filterEventType: "Filter by event type",
@@ -376,24 +380,39 @@ const en = {
 		filterActor: "Filter by actor",
 		actorAll: "All",
 		actorUser: "User",
-		actorBot: "Bot", 
+		actorBot: "Bot",
 		actorSystem: "System",
 		count: "{count} of {total}",
 		unknownActor: "Unknown actor",
 		conversationId: "Conversation",
 		showDetails: "Show details",
 		viewConversation: "Open conversation",
-		page: "Page {page} of {total}",   
+		page: "Page {page} of {total}",
+		colEvent: "Event",
+		colActor: "Actor",
+		colConversation: "Conversation",
+		colDateTime: "Date & Time",
+		colActions: "Actions",
+		filterDateRange: "Date range",
+		rangeToday: "Today",
+		range7d: "Last 7 days",
+		range30d: "Last 30 days",
+		rangeAll: "All time",
+		eventsCount: "{count} events",
+		showingRange: "showing {start}–{end} of {total} total",
+		lastUpdated: "Last updated: {time}",
+		hideDetails: "Hide details",
 		events: {
-			"ai.started": "AI started",
-			"handoff.requested": "AI requested a human",
-			"agent.took_over": "Took over the conversation",
+			ai: { started: "AI started" },
+			handoff: { requested: "Handoff requested" },
+			agent: { took_over: "Agent took over" },
 			handed_to_ai: "Handed back to AI",
-			"number.blocked": "Number blocked",
-			"number.unblocked": "Number unblocked",
-			"conversation.hidden": "Conversation hidden",
-			"conversation.unhidden": "Conversation restored",
-			"conversation.cleared": "Chat cleared"
+			number: { blocked: "Number blocked", unblocked: "Number unblocked" },
+			conversation: {
+				hidden: "Conversation hidden",
+				unhidden: "Conversation unhidden",
+				cleared: "Conversation cleared"
+			}
 		}
 	},
 	phone: {

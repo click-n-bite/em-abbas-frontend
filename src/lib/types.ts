@@ -9,6 +9,7 @@ export interface RealtimeEvent {
 		| "conversation.read"
 		| "conversation.blocked"
 		| "handoff.requested"
+		| "conversation.renamed"
 	[key: string]: unknown
 }
 

@@ -105,6 +105,14 @@ export const conversationsApi = {
 		return unwrapItem<Conversation>(payload, "conversation")
 	},
 
+	async rename(id: string, name: string): Promise<Conversation> {
+		const payload = await request<unknown>(`/conversations/${id}/name`, {
+			method: "PATCH",
+			body: { name }
+		})
+
+		return unwrapItem<Conversation>(payload, "conversation")
+	},
 
 	async clearMessages(id: string): Promise<void> {
 		await request<void>(`/conversations/${id}/clear-messages`, { method: "POST" })

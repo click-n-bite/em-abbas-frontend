@@ -34,7 +34,14 @@ export type { BlockCountryPayload } from "./features/blacklist/types"
 
 export type { BlockNumberPayload } from "./features/blocked-numbers/types"
 
-export type { CreateLeadPayload, Lead, LeadService, LeadsListParams, LeadsPage, UpdateLeadPayload } from "./features/leads/types"
+export type {
+	CreateLeadPayload,
+	Lead,
+	LeadService,
+	LeadsListParams,
+	LeadsPage,
+	UpdateLeadPayload
+} from "./features/leads/types"
 
 export type { ConversationActivityEvent, ConversationActivityResponse } from "./features/activity/types"
 
@@ -47,6 +54,7 @@ export const api = {
 	uploadMedia: conversationsApi.uploadMedia,
 	mediaBlobUrl: conversationsApi.mediaBlobUrl,
 	sendMessage: conversationsApi.sendMessage,
+	renameConversation: conversationsApi.rename,
 	takeover: conversationsApi.takeover,
 	handoffToAi: conversationsApi.handoffToAi,
 	clearConversationMessages: conversationsApi.clearMessages,

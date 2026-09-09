@@ -3,9 +3,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { RefreshCw } from "lucide-react"
+import { Download, RefreshCw } from "lucide-react"
 import { adminApi, api } from "@/lib/api"
 import { errorKey } from "@/lib/errors"
+import { exportContactsToCsv } from "@/lib/export"
 import { useRealtime } from "@/hooks/use-realtime"
 import { useAuth } from "@/providers/auth-provider"
 import { useI18n } from "@/providers/i18n-provider"
@@ -28,17 +29,6 @@ function sortByRecent(list: Conversation[]): Conversation[] {
 	})
 }
 
-// The bulk "/conversations" list endpoint doesn't reliably compute live block
-// status (only the single-conversation "/conversations/:id" endpoint does),
-// so the list can come back saying a number is unblocked when it's actually
-// blocked. Two-tier fix:
-//  1. When we can read the admin blocked-numbers registry, it's authoritative
-//     — trust it completely for every conversation's phone number.
-//  2. Otherwise (no permission to read that registry), never let a plain list
-//     refresh downgrade a conversation we've already confirmed is blocked
-//     (via opening it or via the dedicated realtime "conversation.blocked"
-//     event) back to "unblocked" — only an explicit block/unblock action or
-//     event is allowed to change that.
 function reconcileBlocked(
 	list: Conversation[],
 	previous: Conversation[],
@@ -145,7 +135,6 @@ export default function ConversationsPage() {
 
 		return map
 	}, [agents])
-	// ---------------------------------------------------------------------
 
 	const load = useCallback(
 		async (silent = false) => {
@@ -158,9 +147,6 @@ export default function ConversationsPage() {
 			try {
 				const [list, blockedEntries] = await Promise.all([
 					api.conversations(filter),
-					// Best-effort: only admins/superadmins can read this registry. If it's
-					// unavailable (403, network, etc.) reconcileBlocked falls back to the
-					// preserve-known-blocked-state strategy instead.
 					canManageUsers ? adminApi.listBlockedNumbers("blocked").catch(() => null) : Promise.resolve(null)
 				])
 
@@ -327,15 +313,6 @@ export default function ConversationsPage() {
 		[onConversationChange, onConversationHiddenChange]
 	)
 
-	// Upsert used by realtime handlers below. IMPORTANT: `blocked` /
-	// `whatsappStatus` are intentionally NEVER touched here — only the
-	// dedicated "conversation.blocked" event (below) is allowed to change
-	// them. Otherwise a generic "conversation.upserted" frame that happens
-	// to arrive right after you block/unblock from the chat panel (with a
-	// stale DB snapshot, since the WhatsApp-side block can still be
-	// "pending") would silently revert your optimistic update a moment
-	// later — which looked like "I have to click the conversation again to
-	// see it as blocked."
 	const upsert = useCallback((partial: Partial<Conversation> & { id: string }) => {
 		const { blocked: _ignoredBlocked, whatsappStatus: _ignoredWhatsappStatus, ...safePartial } = partial
 
@@ -490,14 +467,26 @@ export default function ConversationsPage() {
 			title={t("inbox.title")}
 			subtitle={failure ? t(failure) : t("inbox.selectHint")}
 			actions={
-				<button
-					type='button'
-					onClick={() => void load(true)}
-					className='btn-secondary px-3 py-2'
-					aria-label={t("common.refresh")}
-					title={t("common.refresh")}>
-					<RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} aria-hidden='true' />
-				</button>
+				<div className='flex items-center gap-2'>
+					<button
+						type='button'
+						onClick={() => exportContactsToCsv(filtered)}
+						disabled={filtered.length === 0}
+						className='btn-secondary inline-flex items-center gap-2 px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50'
+						aria-label={t("inbox.exportContacts")}
+						title={t("inbox.exportContacts")}>
+						<Download className='h-4 w-4' aria-hidden='true' />
+						<span className='hidden sm:inline'>{t("inbox.exportContacts")}</span>
+					</button>
+					<button
+						type='button'
+						onClick={() => void load(true)}
+						className='btn-secondary px-3 py-2'
+						aria-label={t("common.refresh")}
+						title={t("common.refresh")}>
+						<RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} aria-hidden='true' />
+					</button>
+				</div>
 			}>
 			<div className='grid h-full min-h-0 gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]'>
 				<div className={cn("card min-h-0 overflow-hidden", selected ? "hidden lg:block" : "block")}>

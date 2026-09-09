@@ -1,7 +1,18 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Bot, ChevronLeft, ChevronRight, MessageSquare, Plus, RefreshCw, UserRound, UserRoundPlus } from "lucide-react"
+import {
+	Bot,
+	ChevronLeft,
+	ChevronRight,
+	MessageSquare,
+	Plus,
+	RefreshCw,
+	UserRound,
+	UserRoundPlus,
+	ChevronDown,
+	ChevronUp
+} from "lucide-react"
 import { useRouter } from "next/navigation"
 import { adminApi, api, ApiError } from "@/lib/api"
 import { errorDetail, errorKey } from "@/lib/errors"
@@ -74,6 +85,9 @@ export default function LeadsPage() {
 	const [closingLead, setClosingLead] = useState<Lead | null>(null)
 
 	const [busyLeadId, setBusyLeadId] = useState<number | null>(null)
+
+	// Track which lead's note is expanded
+	const [expandedNoteId, setExpandedNoteId] = useState<number | null>(null)
 
 	const isAdmin = canManageUsers
 
@@ -194,6 +208,10 @@ export default function LeadsPage() {
 		}
 	}
 
+	const toggleNote = (leadId: number) => {
+		setExpandedNoteId(expandedNoteId === leadId ? null : leadId)
+	}
+
 	const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
 	return (
@@ -280,85 +298,119 @@ export default function LeadsPage() {
 					<EmptyState icon={<UserRoundPlus className='h-5 w-5' aria-hidden='true' />} title={t("leads.empty")} />
 				) : (
 					<ul className='divide-y divide-ink-100 dark:divide-ink-700/70'>
-						{leads.map((lead) => (
-							<li key={lead.id} className='flex flex-wrap items-start gap-3 px-5 py-4'>
-								<div className='min-w-0 flex-1'>
-									<div className='flex flex-wrap items-center gap-2'>
-										<p
-											dir={textDirOf(lead.customerName)}
-											className='truncate text-sm font-semibold text-ink-900 dark:text-ink-50'>
-											{lead.customerName?.trim() || lead.phone}
+						{leads.map((lead) => {
+							const isExpanded = expandedNoteId === lead.id
+
+							const hasNote = lead.note && lead.note.trim().length > 0
+
+							const isNoteLong = hasNote && lead.note!.length > 60
+
+							return (
+								<li key={lead.id} className='flex flex-wrap items-start gap-3 px-5 py-4'>
+									<div className='min-w-0 flex-1'>
+										<div className='flex flex-wrap items-center gap-2'>
+											<p
+												dir={textDirOf(lead.customerName)}
+												className='truncate text-sm font-semibold text-ink-900 dark:text-ink-50'>
+												{lead.customerName?.trim() || lead.phone}
+											</p>
+											<SourceBadge source={lead.source} />
+											<span
+												className={cn(
+													"badge",
+													lead.status === "open"
+														? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200"
+														: "bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200"
+												)}>
+												{t(`leads.status.${lead.status}`)}
+											</span>
+										</div>
+
+										<p dir='ltr' className='mt-0.5 truncate text-xs text-ink-500 dark:text-ink-400'>
+											{lead.phone}
 										</p>
-										<SourceBadge source={lead.source} />
-										<span
-											className={cn(
-												"badge",
-												lead.status === "open"
-													? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200"
-													: "bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200"
-											)}>
-											{t(`leads.status.${lead.status}`)}
-										</span>
+
+										<p className='mt-1 text-xs text-ink-500 dark:text-ink-400'>{lead.serviceName}</p>
+
+										{/* Note with toggle functionality */}
+										{hasNote && (
+											<div className='mt-1'>
+												<div className='flex items-start gap-1.5'>
+													<p
+														dir={textDirOf(lead.note!)}
+														className={cn(
+															"text-xs text-ink-600 dark:text-ink-300",
+															!isExpanded && isNoteLong && "line-clamp-1"
+														)}>
+														<span className='font-medium text-ink-500 dark:text-ink-400'>Note:</span> {lead.note}
+													</p>
+													{isNoteLong && (
+														<button
+															type='button'
+															onClick={() => toggleNote(lead.id)}
+															className='shrink-0 text-xs font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300'
+															aria-label={isExpanded ? t("common.hide") : t("common.show")}>
+															{isExpanded ? (
+																<ChevronUp className='h-3.5 w-3.5' aria-hidden='true' />
+															) : (
+																<ChevronDown className='h-3.5 w-3.5' aria-hidden='true' />
+															)}
+														</button>
+													)}
+												</div>
+											</div>
+										)}
+
+										<p className='mt-1 text-xs text-ink-400'>
+											{t("leads.createdBy")}: {lead.createdBy?.displayName ?? t("leads.sourceLabel.ai")} ·{" "}
+											{formatDateTime(lead.createdAt)}
+										</p>
+
+										{lead.status === "closed" ? (
+											<p className='mt-1 text-xs text-ink-400'>
+												{t("leads.closedBy")}: {lead.closedBy?.displayName ?? t("common.unknown")}
+												{lead.closedAt ? ` · ${formatDateTime(lead.closedAt)}` : ""}
+												{lead.closeNote ? <span dir={textDirOf(lead.closeNote)}>{` · ${lead.closeNote}`}</span> : null}
+											</p>
+										) : null}
 									</div>
 
-									<p dir='ltr' className='mt-0.5 truncate text-xs text-ink-500 dark:text-ink-400'>
-										{lead.phone}
-									</p>
-
-									<p className='mt-1 text-xs text-ink-500 dark:text-ink-400'>
-										{lead.serviceName}
-										{lead.note ? <span dir={textDirOf(lead.note)}>{` · ${lead.note}`}</span> : null}
-									</p>
-
-									<p className='mt-1 text-xs text-ink-400'>
-										{t("leads.createdBy")}: {lead.createdBy?.displayName ?? t("leads.sourceLabel.ai")} ·{" "}
-										{formatDateTime(lead.createdAt)}
-									</p>
-
-									{lead.status === "closed" ? (
-										<p className='mt-1 text-xs text-ink-400'>
-											{t("leads.closedBy")}: {lead.closedBy?.displayName ?? t("common.unknown")}
-											{lead.closedAt ? ` · ${formatDateTime(lead.closedAt)}` : ""}
-											{lead.closeNote ? <span dir={textDirOf(lead.closeNote)}>{` · ${lead.closeNote}`}</span> : null}
-										</p>
-									) : null}
-								</div>
-
-								<div className='flex shrink-0 items-center gap-2'>
-									<button
-										type='button'
-										className='btn-ghost'
-										onClick={() => router.push(`/conversations?id=${lead.conversationId}`)}
-										aria-label={t("leads.viewChat")}
-										title={t("leads.viewChat")}>
-										<MessageSquare className='h-4 w-4' aria-hidden='true' />
-										<span className='hidden sm:inline'>{t("leads.viewChat")}</span>
-									</button>
-
-									{isAdmin && lead.status === "open" ? (
+									<div className='flex shrink-0 items-center gap-2'>
 										<button
 											type='button'
-											className='btn-secondary'
-											disabled={busyLeadId === lead.id}
-											onClick={() => setClosingLead(lead)}>
-											{busyLeadId === lead.id ? <Spinner /> : null}
-											{t("leads.close")}
+											className='btn-ghost'
+											onClick={() => router.push(`/conversations?id=${lead.conversationId}`)}
+											aria-label={t("leads.viewChat")}
+											title={t("leads.viewChat")}>
+											<MessageSquare className='h-4 w-4' aria-hidden='true' />
+											<span className='hidden sm:inline'>{t("leads.viewChat")}</span>
 										</button>
-									) : null}
 
-									{isAdmin && lead.status === "closed" ? (
-										<button
-											type='button'
-											className='btn-secondary'
-											disabled={busyLeadId === lead.id}
-											onClick={() => void reopenLead(lead)}>
-											{busyLeadId === lead.id ? <Spinner /> : null}
-											{t("leads.reopen")}
-										</button>
-									) : null}
-								</div>
-							</li>
-						))}
+										{isAdmin && lead.status === "open" ? (
+											<button
+												type='button'
+												className='btn-secondary'
+												disabled={busyLeadId === lead.id}
+												onClick={() => setClosingLead(lead)}>
+												{busyLeadId === lead.id ? <Spinner /> : null}
+												{t("leads.close")}
+											</button>
+										) : null}
+
+										{isAdmin && lead.status === "closed" ? (
+											<button
+												type='button'
+												className='btn-secondary'
+												disabled={busyLeadId === lead.id}
+												onClick={() => void reopenLead(lead)}>
+												{busyLeadId === lead.id ? <Spinner /> : null}
+												{t("leads.reopen")}
+											</button>
+										) : null}
+									</div>
+								</li>
+							)
+						})}
 					</ul>
 				)}
 

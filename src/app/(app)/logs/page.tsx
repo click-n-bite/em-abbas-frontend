@@ -14,7 +14,8 @@ import {
 	ActivityActorType,
 	ActivityEventType,
 	ConversationActivityEvent,
-	ConversationActivityResponse
+	ConversationActivityResponse,
+	Conversation
 } from "@/lib/types"
 
 const EVENT_ICONS: Record<ActivityEventType, React.ReactNode> = {
@@ -48,7 +49,7 @@ const EVENT_COLORS: Record<ActivityEventType, string> = {
 }
 
 const EVENT_LABELS: Record<ActivityEventType, string> = {
-	"ai.started": "activity.events.ai.started",
+	"ai.started": "ai started",
 	"handoff.requested": "activity.events.handoff.requested",
 	"agent.took_over": "activity.events.agent.took_over",
 	handed_to_ai: "activity.events.handed_to_ai",
@@ -60,6 +61,11 @@ const EVENT_LABELS: Record<ActivityEventType, string> = {
 }
 
 const PAGE_SIZE = 4
+
+interface ConversationLabel {
+	name: string
+	phone: string
+}
 
 function getEventColor(eventType: ActivityEventType): string {
 	return EVENT_COLORS[eventType] || "bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200"
@@ -75,18 +81,30 @@ function getActorIcon(actorType: ActivityActorType): React.ReactNode {
 
 export default function ActivityPage() {
 	const { t, formatDateTime } = useI18n()
+
 	const { push } = useToast()
+
 	const router = useRouter()
 
 	const [loading, setLoading] = useState(true)
+
 	const [activities, setActivities] = useState<ConversationActivityResponse[]>([])
+
 	const [filteredEvents, setFilteredEvents] = useState<ConversationActivityEvent[]>([])
+
 	const [total, setTotal] = useState(0)
+
+	// id -> { name, phone }, built from the conversations we fetch below, so
+	// the list can show the customer and let search match either field.
+	const [conversationLabels, setConversationLabels] = useState<Map<string, ConversationLabel>>(new Map())
 
 	// Filters
 	const [search, setSearch] = useState("")
+
 	const [eventTypeFilter, setEventTypeFilter] = useState<ActivityEventType | "all">("all")
+
 	const [actorFilter, setActorFilter] = useState<ActivityActorType | "all">("all")
+
 	const [page, setPage] = useState(0)
 
 	const loadActivities = useCallback(
@@ -96,21 +114,32 @@ export default function ActivityPage() {
 
 				const conversations = await api.conversations("all", signal)
 
+				setConversationLabels(
+					new Map(
+						conversations.map((conv: Conversation) => [
+							conv.id,
+							{ name: conv.customerName?.trim() ?? "", phone: conv.phone ?? "" }
+						])
+					)
+				)
+
 				const activityPromises = conversations.map((conv) =>
 					api.conversationActivity(conv.id, signal).catch(() => null)
 				)
 
 				const results = await Promise.all(activityPromises)
+
 				const validResults = results.filter((r): r is ConversationActivityResponse => r !== null)
 
 				setActivities(validResults)
 
 				let allEvents: ConversationActivityEvent[] = []
+
 				validResults.forEach((activity) => {
 					allEvents = [...allEvents, ...activity.events]
 				})
 
-				// Sort by occurrence date (newest first)
+				// Newest first
 				allEvents.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
 
 				setTotal(allEvents.length)
@@ -129,15 +158,22 @@ export default function ActivityPage() {
 		(events: ConversationActivityEvent[]) => {
 			let filtered = [...events]
 
-			// Search filter
+			// Search filter — matches the event summary/actor/type, OR the
+			// conversation's customer name, OR their phone number.
 			if (search.trim()) {
 				const term = search.trim().toLowerCase()
-				filtered = filtered.filter(
-					(event) =>
+
+				filtered = filtered.filter((event) => {
+					const label = conversationLabels.get(event.conversationId)
+
+					return (
 						event.summary.toLowerCase().includes(term) ||
 						event.actorName?.toLowerCase().includes(term) ||
-						event.eventType.toLowerCase().includes(term)
-				)
+						event.eventType.toLowerCase().includes(term) ||
+						Boolean(label?.name.toLowerCase().includes(term)) ||
+						Boolean(label?.phone.toLowerCase().includes(term))
+					)
+				})
 			}
 
 			// Event type filter
@@ -150,25 +186,33 @@ export default function ActivityPage() {
 				filtered = filtered.filter((event) => event.actorType === actorFilter)
 			}
 
+			// Newest first, always re-asserted here in case events came from
+			// multiple conversations merged in a different order
+			filtered.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
+
 			// Pagination
 			const start = page * PAGE_SIZE
+
 			const end = start + PAGE_SIZE
 
 			setFilteredEvents(filtered.slice(start, end))
 			setTotal(filtered.length)
 		},
-		[search, eventTypeFilter, actorFilter, page]
+		[search, eventTypeFilter, actorFilter, page, conversationLabels]
 	)
 
 	useEffect(() => {
 		const abortController = new AbortController()
+
 		loadActivities(abortController.signal)
+
 		return () => abortController.abort()
 	}, [loadActivities])
 
 	useEffect(() => {
 		// Re-apply filters when they change
 		const allEvents: ConversationActivityEvent[] = []
+
 		activities.forEach((activity) => {
 			allEvents.push(...activity.events)
 		})
@@ -184,8 +228,22 @@ export default function ActivityPage() {
 		router.push(`/conversations?id=${conversationId}`)
 	}
 
+	const customerDisplayOf = useCallback(
+		(conversationId: string) => {
+			const label = conversationLabels.get(conversationId)
+
+			if (!label) return conversationId
+
+			if (label.name && label.phone) return `${label.name} • ${label.phone}`
+
+			return label.name || label.phone || conversationId
+		},
+		[conversationLabels]
+	)
+
 	// Get unique event types for filter dropdown
 	const uniqueEventTypes = Array.from(new Set(activities.flatMap((a) => a.events.map((e) => e.eventType))))
+
 	const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
 	return (
@@ -209,12 +267,8 @@ export default function ActivityPage() {
 				<header className='flex flex-col gap-3 border-b border-ink-200 px-5 py-4 dark:border-ink-700 sm:flex-row sm:items-center sm:justify-between'>
 					<div className='flex items-center gap-2'>
 						<Activity className='h-4 w-4 text-brand-500' aria-hidden='true' />
-						<h2 className='text-sm font-semibold text-ink-900 dark:text-ink-50'>
-							{t("activity.title")}
-						</h2>
-						<span className='badge bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200'>
-							{total}
-						</span>
+						<h2 className='text-sm font-semibold text-ink-900 dark:text-ink-50'>{t("activity.title")}</h2>
+						<span className='badge bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200'>{total}</span>
 					</div>
 
 					<div className='flex flex-wrap items-center gap-2'>
@@ -231,7 +285,7 @@ export default function ActivityPage() {
 								}}
 								placeholder={t("activity.searchPlaceholder")}
 								aria-label={t("common.search")}
-								className='input ps-9 w-full'
+								className='input w-full ps-9'
 							/>
 						</div>
 
@@ -310,8 +364,8 @@ export default function ActivityPage() {
 									<div className='mt-1 flex items-center gap-3 text-xs text-ink-400 dark:text-ink-500'>
 										<span>{formatDateTime(event.occurredAt)}</span>
 										<span>•</span>
-										<span className='truncate'>
-											{t("activity.conversationId")}: {event.conversationId}
+										<span className='truncate' dir='auto'>
+											{customerDisplayOf(event.conversationId)}
 										</span>
 									</div>
 

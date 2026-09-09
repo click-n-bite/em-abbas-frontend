@@ -29,6 +29,7 @@ import {
 	MoreVertical,
 	MousePointerClick,
 	Paperclip,
+	Pencil,
 	Search,
 	Send,
 	SendHorizontal,
@@ -545,6 +546,12 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 
 	const [leadModalOpen, setLeadModalOpen] = useState(false)
 
+	const [renameModalOpen, setRenameModalOpen] = useState(false)
+
+	const [renameDraft, setRenameDraft] = useState("")
+
+	const [renaming, setRenaming] = useState(false)
+
 	const messageRefs = useRef(new Map<string, HTMLDivElement>())
 
 	const menuRef = useRef<HTMLDivElement>(null)
@@ -602,6 +609,8 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 		setSearchQuery("")
 		setSearchActiveIndex(0)
 		setLeadModalOpen(false)
+		setRenameModalOpen(false)
+		setRenameDraft("")
 	}, [conversationId])
 
 	useEffect(() => {
@@ -757,6 +766,19 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 					...current,
 					blocked: Boolean(event.blocked),
 					whatsappStatus: (event.whatsappStatus as Conversation["whatsappStatus"]) ?? null
+				})
+
+				return
+			}
+
+			if (event.event === "conversation.renamed") {
+				if (event.id !== current.id) return
+
+				onConversationChangeRef.current({
+					...current,
+					customerName: (event.customerName as string | null | undefined) ?? null,
+					metaCustomerName: (event.metaCustomerName as string | null | undefined) ?? null,
+					nameOverridden: Boolean(event.nameOverridden)
 				})
 			}
 		},
@@ -1270,6 +1292,31 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 		}
 	}
 
+	const openRenameModal = () => {
+		if (!conversation) return
+
+		setRenameDraft(conversation.customerName ?? "")
+		setRenameModalOpen(true)
+	}
+
+	const submitRename = async (name: string) => {
+		if (!conversationId || !conversation || renaming) return
+
+		setRenaming(true)
+
+		try {
+			const updated = await api.renameConversation(conversationId, name.trim())
+
+			onConversationChange(updated)
+			push(t(name.trim() ? "chat.nameUpdated" : "chat.nameReset"), "success")
+			setRenameModalOpen(false)
+		} catch (error) {
+			push(errorDetail(error) ?? t(errorKey(error)), "error")
+		} finally {
+			setRenaming(false)
+		}
+	}
+
 	if (!conversation) {
 		return (
 			<div className='flex h-full items-center justify-center'>
@@ -1300,11 +1347,21 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 					) : null}
 					<Avatar name={conversation.customerName} seed={conversation.phone} />
 					<div className='min-w-0 flex-1'>
-						<p
-							dir={textDirOf(conversation.customerName)}
-							className='truncate text-sm font-semibold text-ink-900 dark:text-ink-50'>
-							{conversation.customerName?.trim() || conversation.phone}
-						</p>
+						<div className='flex items-center gap-1.5'>
+							<p
+								dir={textDirOf(conversation.customerName)}
+								className='truncate text-sm font-semibold text-ink-900 dark:text-ink-50'>
+								{conversation.customerName?.trim() || conversation.phone}
+							</p>
+							<button
+								type='button'
+								onClick={openRenameModal}
+								className='btn-ghost h-6 w-6 flex-shrink-0 p-0'
+								aria-label={t("chat.renameContact")}
+								title={t("chat.renameContact")}>
+								<Pencil className='h-3.5 w-3.5' aria-hidden='true' />
+							</button>
+						</div>
 						<p className='truncate text-xs text-ink-500 dark:text-ink-400' dir='ltr'>
 							{conversation.phone}
 						</p>
@@ -1780,6 +1837,75 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 				onSubmit={submitLead}
 				fixedConversation={{ id: conversation.id, label: conversation.customerName?.trim() || conversation.phone }}
 			/>
+
+			{renameModalOpen ? (
+				<div
+					className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'
+					role='dialog'
+					aria-modal='true'
+					onClick={() => setRenameModalOpen(false)}>
+					<div
+						onClick={(event) => event.stopPropagation()}
+						className='w-full max-w-sm rounded-2xl border border-ink-200 bg-white p-5 shadow-xl dark:border-ink-700 dark:bg-ink-800'>
+						<h3 className='mb-1 text-sm font-semibold text-ink-900 dark:text-ink-50'>{t("chat.renameContact")}</h3>
+
+						{conversation.nameOverridden && conversation.metaCustomerName ? (
+							<p className='mb-3 text-xs text-ink-500 dark:text-ink-400'>
+								{t("chat.whatsappSays", { name: conversation.metaCustomerName })}
+							</p>
+						) : null}
+
+						<input
+							autoFocus
+							value={renameDraft}
+							onChange={(event) => setRenameDraft(event.target.value)}
+							onKeyDown={(event) => {
+								if (event.key === "Enter") void submitRename(renameDraft)
+
+								if (event.key === "Escape") setRenameModalOpen(false)
+							}}
+							maxLength={255}
+							placeholder={t("chat.renamePlaceholder")}
+							aria-label={t("chat.renameContact")}
+							className='input mb-3 w-full'
+						/>
+
+						<p className='mb-4 text-[11px] text-ink-400'>{t("chat.renameHint")}</p>
+
+						<div className='flex items-center justify-between gap-2'>
+							{conversation.nameOverridden ? (
+								<button
+									type='button'
+									onClick={() => void submitRename("")}
+									disabled={renaming}
+									className='btn-ghost px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-rose-300 dark:hover:bg-rose-950'>
+									{t("chat.resetName")}
+								</button>
+							) : (
+								<span />
+							)}
+
+							<div className='flex items-center gap-2'>
+								<button
+									type='button'
+									onClick={() => setRenameModalOpen(false)}
+									disabled={renaming}
+									className='btn-secondary px-3 py-1.5 text-xs'>
+									{t("common.cancel")}
+								</button>
+								<button
+									type='button'
+									onClick={() => void submitRename(renameDraft)}
+									disabled={renaming || renameDraft.trim().length === 0}
+									className='btn-primary px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50'>
+									{renaming ? <Spinner /> : null}
+									{t("common.save")}
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			) : null}
 
 			<ConfirmDialog
 				open={pendingClear}

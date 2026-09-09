@@ -93,7 +93,8 @@ const ar: Dictionary = {
 		allAgents: "كل الموظفين",
 		filterByAgent: "تصفية حسب الموظف",
 		quickBlock: "حجب",
-		quickUnblock: "إلغاء الحجب"
+		quickUnblock: "إلغاء الحجب",
+		exportContacts: "تحميل جهات الاتصال"
 	},
 	chat: {
 		takeover: "تولي المحادثة",
@@ -142,6 +143,9 @@ const ar: Dictionary = {
 		statusDelivered: "تم التوصيل",
 		statusRead: "مقروءة",
 		statusFailed: "فشلت",
+		nameUpdated: "تم تحديث اسم المحادثة",
+		renameHint: "أدخل اسماً جديداً للمحادثة",
+		resetName: "إعادة تعيين الاسم",
 		rich: {
 			menu: "القائمة",
 			template: "قالب",
@@ -377,32 +381,56 @@ const ar: Dictionary = {
 		panelTitle: "سجل نشاط المحادثة",
 		empty: "لا يوجد نشاط مسجل لهذه المحادثة بعد.",
 		forbidden: "فقط المشرف العام والمشرف يمكنهما رؤية سجل نشاط المحادثة.",
-		title: "سجل النشاط",                           
-		subtitle: "جميع أحداث المنصة والتفاعلات",      
-		searchPlaceholder: "ابحث في النشاط…",         
-		filterEventType: "تصفية حسب نوع الحدث",    
-		eventTypeAll: "جميع الأحداث",             
-		filterActor: "تصفية حسب الفاعل", 
+		title: "سجل النشاط",
+		subtitle: "جميع أحداث المنصة والتفاعلات",
+		searchPlaceholder: "ابحث في النشاط…",
+		filterEventType: "تصفية حسب نوع الحدث",
+		eventTypeAll: "جميع الأحداث",
+		filterActor: "تصفية حسب الفاعل",
 		actorAll: "الجميع",
 		actorUser: "مستخدم",
-		actorBot: "بوت",         
-		actorSystem: "النظام",  
+		actorBot: "بوت",
+		actorSystem: "النظام",
 		count: "{count} من {total}",
-		unknownActor: "فاعل غير معروف", 
+		unknownActor: "فاعل غير معروف",
 		conversationId: "المحادثة",
 		showDetails: "عرض التفاصيل",
-		viewConversation: "فتح المحادثة", 
+		viewConversation: "فتح المحادثة",
 		page: "الصفحة {page} من {total}",
+		colEvent: "الحدث",
+		colActor: "الممثل",
+		colConversation: "المحادثة",
+		colDateTime: "التاريخ والوقت",
+		colActions: "الإجراءات",
+		filterDateRange: "نطاق التاريخ",
+		rangeToday: "اليوم",
+		range7d: "آخر 7 أيام",
+		range30d: "آخر 30 يوماً",
+		rangeAll: "كل الوقت",
+		eventsCount: "{count} حدث",
+		showingRange: "عرض {start}–{end} من {total} إجمالي",
+		lastUpdated: "آخر تحديث: {time}",
+		hideDetails: "إخفاء التفاصيل",
 		events: {
-			"ai.started": "بدأ الذكاء الاصطناعي",
-			"handoff.requested": "طلب الذكاء الاصطناعي تدخل موظف",
-			"agent.took_over": "تولى المحادثة",
-			handed_to_ai: "أعاد المحادثة للذكاء الاصطناعي",
-			"number.blocked": "تم حظر الرقم",
-			"number.unblocked": "تم رفع الحظر عن الرقم",
-			"conversation.hidden": "تم إخفاء المحادثة",
-			"conversation.unhidden": "تمت استعادة المحادثة",
-			"conversation.cleared": "تم مسح المحادثة"
+			ai: {
+				started: "تم تشغيل الذكاء الاصطناعي"
+			},
+			handoff: {
+				requested: "طلب تحويل المحادثة"
+			},
+			agent: {
+				took_over: "تولى الوكيل المحادثة"
+			},
+			handed_to_ai: "تم إعادة المحادثة إلى الذكاء الاصطناعي",
+			number: {
+				blocked: "تم حظر الرقم",
+				unblocked: "تم إلغاء حظر الرقم"
+			},
+			conversation: {
+				hidden: "تم إخفاء المحادثة",
+				unhidden: "تم إظهار المحادثة",
+				cleared: "تم مسح المحادثة"
+			}
 		}
 	},
 	phone: {
