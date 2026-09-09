@@ -1,7 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
+	ArrowDownNarrowWide,
+	ArrowUpNarrowWide,
 	Bot,
 	ChevronLeft,
 	ChevronRight,
@@ -28,6 +30,7 @@ import { cn, textDirOf } from "@/lib/utils"
 import type { Lead, LeadSource, LeadStatus } from "@/lib/types"
 
 type StatusFilter = LeadStatus | "all"
+type SortOrder = "newest" | "oldest"
 
 const PAGE_SIZE = 4
 
@@ -77,6 +80,8 @@ export default function LeadsPage() {
 	const [mineOnly, setMineOnly] = useState(false)
 
 	const [search, setSearch] = useState("")
+
+	const [sortOrder, setSortOrder] = useState<SortOrder>("newest")
 
 	const [formOpen, setFormOpen] = useState(false)
 
@@ -130,6 +135,20 @@ export default function LeadsPage() {
 		return () => window.clearTimeout(timer)
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [search])
+
+	const sortedLeads = useMemo(() => {
+		const copy = [...leads]
+
+		copy.sort((a, b) => {
+			const aTime = new Date(a.createdAt).getTime()
+
+			const bTime = new Date(b.createdAt).getTime()
+
+			return sortOrder === "newest" ? bTime - aTime : aTime - bTime
+		})
+
+		return copy
+	}, [leads, sortOrder])
 
 	const openAddModal = () => {
 		api
@@ -260,6 +279,37 @@ export default function LeadsPage() {
 							<option value='agent'>{t("leads.source.agent")}</option>
 						</select>
 
+						<div className='flex items-center gap-1 rounded-xl bg-ink-100 p-1 dark:bg-ink-900'>
+							<button
+								type='button'
+								onClick={() => setSortOrder("newest")}
+								aria-pressed={sortOrder === "newest"}
+								title={t("leads.sortNewest")}
+								className={cn(
+									"flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition",
+									sortOrder === "newest"
+										? "bg-white text-ink-900 shadow-sm dark:bg-ink-700 dark:text-ink-50"
+										: "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100"
+								)}>
+								<ArrowDownNarrowWide className='h-3.5 w-3.5' aria-hidden='true' />
+								{t("leads.sortNewest")}
+							</button>
+							<button
+								type='button'
+								onClick={() => setSortOrder("oldest")}
+								aria-pressed={sortOrder === "oldest"}
+								title={t("leads.sortOldest")}
+								className={cn(
+									"flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition",
+									sortOrder === "oldest"
+										? "bg-white text-ink-900 shadow-sm dark:bg-ink-700 dark:text-ink-50"
+										: "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100"
+								)}>
+								<ArrowUpNarrowWide className='h-3.5 w-3.5' aria-hidden='true' />
+								{t("leads.sortOldest")}
+							</button>
+						</div>
+
 						<label className='flex items-center gap-1.5 text-xs font-medium text-ink-600 dark:text-ink-300'>
 							<input type='checkbox' checked={mineOnly} onChange={(event) => setMineOnly(event.target.checked)} />
 							{t("leads.mineOnly")}
@@ -297,121 +347,145 @@ export default function LeadsPage() {
 				) : leads.length === 0 ? (
 					<EmptyState icon={<UserRoundPlus className='h-5 w-5' aria-hidden='true' />} title={t("leads.empty")} />
 				) : (
-					<ul className='divide-y divide-ink-100 dark:divide-ink-700/70'>
-						{leads.map((lead) => {
-							const isExpanded = expandedNoteId === lead.id
+					<div className='overflow-x-auto'>
+						<table className='w-full min-w-[860px] text-sm'>
+							<thead>
+								<tr className='border-b border-ink-200 text-start text-xs font-medium text-ink-500 dark:border-ink-700 dark:text-ink-400'>
+									<th className='px-5 py-3 text-start font-medium'>{t("leads.colDate")}</th>
+									<th className='px-5 py-3 text-start font-medium'>{t("leads.colConversation")}</th>
+									<th className='px-5 py-3 text-start font-medium'>{t("leads.colName")}</th>
+									<th className='px-5 py-3 text-start font-medium'>{t("leads.colNumber")}</th>
+									<th className='px-5 py-3 text-start font-medium'>{t("leads.colDetails")}</th>
+									<th className='px-5 py-3 text-end font-medium'>{t("activity.colActions")}</th>
+								</tr>
+							</thead>
+							<tbody className='divide-y divide-ink-100 dark:divide-ink-700/70'>
+								{sortedLeads.map((lead) => {
+									const isExpanded = expandedNoteId === lead.id
 
-							const hasNote = lead.note && lead.note.trim().length > 0
+									const hasNote = lead.note && lead.note.trim().length > 0
 
-							const isNoteLong = hasNote && lead.note!.length > 60
+									const isNoteLong = hasNote && lead.note!.length > 60
 
-							return (
-								<li key={lead.id} className='flex flex-wrap items-start gap-3 px-5 py-4'>
-									<div className='min-w-0 flex-1'>
-										<div className='flex flex-wrap items-center gap-2'>
-											<p
-												dir={textDirOf(lead.customerName)}
-												className='truncate text-sm font-semibold text-ink-900 dark:text-ink-50'>
-												{lead.customerName?.trim() || lead.phone}
-											</p>
-											<SourceBadge source={lead.source} />
-											<span
-												className={cn(
-													"badge",
-													lead.status === "open"
-														? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200"
-														: "bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200"
-												)}>
-												{t(`leads.status.${lead.status}`)}
-											</span>
-										</div>
+									return (
+										<tr key={lead.id} className='align-top'>
+											<td className='whitespace-nowrap px-5 py-4 text-xs text-ink-500 dark:text-ink-400'>
+												{formatDateTime(lead.createdAt)}
+											</td>
 
-										<p dir='ltr' className='mt-0.5 truncate text-xs text-ink-500 dark:text-ink-400'>
-											{lead.phone}
-										</p>
+											<td className='px-5 py-4'>
+												<button
+													type='button'
+													className='btn-ghost'
+													onClick={() => router.push(`/conversations?id=${lead.conversationId}`)}
+													aria-label={t("leads.viewChat")}
+													title={t("leads.viewChat")}>
+													<MessageSquare className='h-4 w-4' aria-hidden='true' />
+													<span className='hidden sm:inline'>{t("leads.viewChat")}</span>
+												</button>
+											</td>
 
-										<p className='mt-1 text-xs text-ink-500 dark:text-ink-400'>{lead.serviceName}</p>
-
-										{/* Note with toggle functionality */}
-										{hasNote && (
-											<div className='mt-1'>
-												<div className='flex items-start gap-1.5'>
-													<p
-														dir={textDirOf(lead.note!)}
+											<td className='px-5 py-4'>
+												<p
+													dir={textDirOf(lead.customerName)}
+													className='max-w-[160px] truncate text-sm font-semibold text-ink-900 dark:text-ink-50'>
+													{lead.customerName?.trim() || lead.phone}
+												</p>
+												<div className='mt-1 flex flex-wrap items-center gap-1.5'>
+													<SourceBadge source={lead.source} />
+													<span
 														className={cn(
-															"text-xs text-ink-600 dark:text-ink-300",
-															!isExpanded && isNoteLong && "line-clamp-1"
+															"badge",
+															lead.status === "open"
+																? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200"
+																: "bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200"
 														)}>
-														<span className='font-medium text-ink-500 dark:text-ink-400'>Note:</span> {lead.note}
+														{t(`leads.status.${lead.status}`)}
+													</span>
+												</div>
+											</td>
+
+											<td dir='ltr' className='whitespace-nowrap px-5 py-4 text-xs text-ink-500 dark:text-ink-400'>
+												{lead.phone}
+											</td>
+
+											<td className='px-5 py-4'>
+												<p className='text-xs text-ink-500 dark:text-ink-400'>{lead.serviceName}</p>
+
+												{hasNote && (
+													<div className='mt-1'>
+														<div className='flex items-start gap-1.5'>
+															<p
+																dir={textDirOf(lead.note!)}
+																className={cn(
+																	"max-w-[220px] text-xs text-ink-600 dark:text-ink-300",
+																	!isExpanded && isNoteLong && "line-clamp-1"
+																)}>
+																<span className='font-medium text-ink-500 dark:text-ink-400'>Note:</span> {lead.note}
+															</p>
+															{isNoteLong && (
+																<button
+																	type='button'
+																	onClick={() => toggleNote(lead.id)}
+																	className='shrink-0 text-xs font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300'
+																	aria-label={isExpanded ? t("common.hide") : t("common.show")}>
+																	{isExpanded ? (
+																		<ChevronUp className='h-3.5 w-3.5' aria-hidden='true' />
+																	) : (
+																		<ChevronDown className='h-3.5 w-3.5' aria-hidden='true' />
+																	)}
+																</button>
+															)}
+														</div>
+													</div>
+												)}
+
+												<p className='mt-1 text-xs text-ink-400'>
+													{t("leads.createdBy")}: {lead.createdBy?.displayName ?? t("leads.sourceLabel.ai")}
+												</p>
+
+												{lead.status === "closed" ? (
+													<p className='mt-1 text-xs text-ink-400'>
+														{t("leads.closedBy")}: {lead.closedBy?.displayName ?? t("common.unknown")}
+														{lead.closedAt ? ` · ${formatDateTime(lead.closedAt)}` : ""}
+														{lead.closeNote ? (
+															<span dir={textDirOf(lead.closeNote)}>{` · ${lead.closeNote}`}</span>
+														) : null}
 													</p>
-													{isNoteLong && (
+												) : null}
+											</td>
+
+											<td className='px-5 py-4 text-end'>
+												<div className='flex justify-end gap-2'>
+													{isAdmin && lead.status === "open" ? (
 														<button
 															type='button'
-															onClick={() => toggleNote(lead.id)}
-															className='shrink-0 text-xs font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300'
-															aria-label={isExpanded ? t("common.hide") : t("common.show")}>
-															{isExpanded ? (
-																<ChevronUp className='h-3.5 w-3.5' aria-hidden='true' />
-															) : (
-																<ChevronDown className='h-3.5 w-3.5' aria-hidden='true' />
-															)}
+															className='btn-secondary'
+															disabled={busyLeadId === lead.id}
+															onClick={() => setClosingLead(lead)}>
+															{busyLeadId === lead.id ? <Spinner /> : null}
+															{t("leads.close")}
 														</button>
-													)}
+													) : null}
+
+													{isAdmin && lead.status === "closed" ? (
+														<button
+															type='button'
+															className='btn-secondary'
+															disabled={busyLeadId === lead.id}
+															onClick={() => void reopenLead(lead)}>
+															{busyLeadId === lead.id ? <Spinner /> : null}
+															{t("leads.reopen")}
+														</button>
+													) : null}
 												</div>
-											</div>
-										)}
-
-										<p className='mt-1 text-xs text-ink-400'>
-											{t("leads.createdBy")}: {lead.createdBy?.displayName ?? t("leads.sourceLabel.ai")} ·{" "}
-											{formatDateTime(lead.createdAt)}
-										</p>
-
-										{lead.status === "closed" ? (
-											<p className='mt-1 text-xs text-ink-400'>
-												{t("leads.closedBy")}: {lead.closedBy?.displayName ?? t("common.unknown")}
-												{lead.closedAt ? ` · ${formatDateTime(lead.closedAt)}` : ""}
-												{lead.closeNote ? <span dir={textDirOf(lead.closeNote)}>{` · ${lead.closeNote}`}</span> : null}
-											</p>
-										) : null}
-									</div>
-
-									<div className='flex shrink-0 items-center gap-2'>
-										<button
-											type='button'
-											className='btn-ghost'
-											onClick={() => router.push(`/conversations?id=${lead.conversationId}`)}
-											aria-label={t("leads.viewChat")}
-											title={t("leads.viewChat")}>
-											<MessageSquare className='h-4 w-4' aria-hidden='true' />
-											<span className='hidden sm:inline'>{t("leads.viewChat")}</span>
-										</button>
-
-										{isAdmin && lead.status === "open" ? (
-											<button
-												type='button'
-												className='btn-secondary'
-												disabled={busyLeadId === lead.id}
-												onClick={() => setClosingLead(lead)}>
-												{busyLeadId === lead.id ? <Spinner /> : null}
-												{t("leads.close")}
-											</button>
-										) : null}
-
-										{isAdmin && lead.status === "closed" ? (
-											<button
-												type='button'
-												className='btn-secondary'
-												disabled={busyLeadId === lead.id}
-												onClick={() => void reopenLead(lead)}>
-												{busyLeadId === lead.id ? <Spinner /> : null}
-												{t("leads.reopen")}
-											</button>
-										) : null}
-									</div>
-								</li>
-							)
-						})}
-					</ul>
+											</td>
+										</tr>
+									)
+								})}
+							</tbody>
+						</table>
+					</div>
 				)}
 
 				{totalPages > 1 ? (

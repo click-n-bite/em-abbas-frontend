@@ -10,6 +10,7 @@ export type ActivityEventType =
 	| "conversation.hidden"
 	| "conversation.unhidden"
 	| "conversation.cleared"
+	| "conversation.renamed"
 	| (string & {})
 
 export interface ConversationActivityEvent {

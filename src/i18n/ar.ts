@@ -32,7 +32,9 @@ const ar: Dictionary = {
 		hoursAgo: "قبل {n} ساعة",
 		daysAgo: "قبل {n} يوم",
 		copy: "نسخ",
-		copied: "تم النسخ"
+		copied: "تم النسخ",
+		show: "إظهار",
+		hide: "إخفاء"
 	},
 	nav: {
 		conversations: "المحادثات",
@@ -374,7 +376,14 @@ const ar: Dictionary = {
 		viewChat: "فتح المحادثة",
 		forbiddenEdit: "فقط المشرف العام والمشرف يمكنهما إغلاق أو إعادة فتح أو تعديل الحالات.",
 		noConversationsHint: 'افتح محادثة من صندوق الوارد أولاً، ثم استخدم زر "إضافة عميل محتمل" هناك.',
-		collectedFields: "بيانات جمعها الذكاء الاصطناعي"
+		collectedFields: "بيانات جمعها الذكاء الاصطناعي",
+		sortNewest: "الأحدث أولاً",
+		sortOldest: "الأقدم أولاً",
+		colDate: "التاريخ",
+		colConversation: "المحادثة",
+		colName: "الاسم",
+		colNumber: "الرقم",
+		colDetails: "التفاصيل"
 	},
 	activity: {
 		tabLabel: "السجل",
@@ -429,7 +438,8 @@ const ar: Dictionary = {
 			conversation: {
 				hidden: "تم إخفاء المحادثة",
 				unhidden: "تم إظهار المحادثة",
-				cleared: "تم مسح المحادثة"
+				cleared: "تم مسح المحادثة",
+				renamed: "تم تغير الاسم"
 			}
 		}
 	},

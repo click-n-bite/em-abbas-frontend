@@ -30,7 +30,9 @@ const en = {
 		hoursAgo: "{n} h ago",
 		daysAgo: "{n} d ago",
 		copy: "Copy",
-		copied: "Copied"
+		copied: "Copied",
+		show: "Show",
+		hide: "Hide"
 	},
 	nav: {
 		conversations: "Conversations",
@@ -365,7 +367,14 @@ const en = {
 		viewChat: "Open chat",
 		forbiddenEdit: "Only super admins and admins can close, reopen, or edit leads.",
 		noConversationsHint: 'Open a conversation from the inbox first, then use "Add lead" there.',
-		collectedFields: "Collected by AI"
+		collectedFields: "Collected by AI",
+		sortNewest: "Newest first",
+		sortOldest: "Oldest first",
+		colDate: "Date",
+		colConversation: "Conversation",
+		colName: "Name",
+		colNumber: "Number",
+		colDetails: "Details"
 	},
 	activity: {
 		tabLabel: "Activity",
@@ -411,7 +420,8 @@ const en = {
 			conversation: {
 				hidden: "Conversation hidden",
 				unhidden: "Conversation unhidden",
-				cleared: "Conversation cleared"
+				cleared: "Conversation cleared",
+				renamed: "Conversation Renamed"
 			}
 		}
 	},

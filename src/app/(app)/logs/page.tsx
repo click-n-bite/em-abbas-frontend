@@ -1,9 +1,8 @@
-// app/activity/page.tsx
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Activity, Bot, User, Shield, Search, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react"
+import { Activity, Bot, User, Shield, Search, RefreshCw, ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react"
 import { useI18n } from "@/providers/i18n-provider"
 import { useToast } from "@/providers/toast-provider"
 import { AppShell } from "@/components/layout/app-shell"
@@ -27,7 +26,8 @@ const EVENT_ICONS: Record<ActivityEventType, React.ReactNode> = {
 	"number.unblocked": <Shield className='h-4 w-4' />,
 	"conversation.hidden": <Activity className='h-4 w-4' />,
 	"conversation.unhidden": <Activity className='h-4 w-4' />,
-	"conversation.cleared": <Activity className='h-4 w-4' />
+	"conversation.cleared": <Activity className='h-4 w-4' />,
+	"conversation.renamed": <Activity className='h-4 w-4' />
 }
 
 const ACTOR_ICONS: Record<ActivityActorType, React.ReactNode> = {
@@ -45,11 +45,12 @@ const EVENT_COLORS: Record<ActivityEventType, string> = {
 	"number.unblocked": "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/40 dark:text-emerald-200",
 	"conversation.hidden": "text-ink-600 bg-ink-50 dark:bg-ink-700/40 dark:text-ink-200",
 	"conversation.unhidden": "text-ink-600 bg-ink-50 dark:bg-ink-700/40 dark:text-ink-200",
-	"conversation.cleared": "text-ink-600 bg-ink-50 dark:bg-ink-700/40 dark:text-ink-200"
+	"conversation.cleared": "text-ink-600 bg-ink-50 dark:bg-ink-700/40 dark:text-ink-200",
+	"conversation.renamed": "text-ink-600 bg-ink-50 dark:bg-ink-700/40 dark:text-ink-200"
 }
 
 const EVENT_LABELS: Record<ActivityEventType, string> = {
-	"ai.started": "ai started",
+	"ai.started": "activity.events.ai.started",
 	"handoff.requested": "activity.events.handoff.requested",
 	"agent.took_over": "activity.events.agent.took_over",
 	handed_to_ai: "activity.events.handed_to_ai",
@@ -57,10 +58,11 @@ const EVENT_LABELS: Record<ActivityEventType, string> = {
 	"number.unblocked": "activity.events.number.unblocked",
 	"conversation.hidden": "activity.events.conversation.hidden",
 	"conversation.unhidden": "activity.events.conversation.unhidden",
-	"conversation.cleared": "activity.events.conversation.cleared"
+	"conversation.cleared": "activity.events.conversation.cleared",
+	"conversation.renamed": "activity.events.conversation.renamed"
 }
 
-const PAGE_SIZE = 4
+const PAGE_SIZE = 10
 
 interface ConversationLabel {
 	name: string
@@ -94,11 +96,10 @@ export default function ActivityPage() {
 
 	const [total, setTotal] = useState(0)
 
-	// id -> { name, phone }, built from the conversations we fetch below, so
-	// the list can show the customer and let search match either field.
 	const [conversationLabels, setConversationLabels] = useState<Map<string, ConversationLabel>>(new Map())
 
-	// Filters
+	const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set())
+
 	const [search, setSearch] = useState("")
 
 	const [eventTypeFilter, setEventTypeFilter] = useState<ActivityEventType | "all">("all")
@@ -139,7 +140,6 @@ export default function ActivityPage() {
 					allEvents = [...allEvents, ...activity.events]
 				})
 
-				// Newest first
 				allEvents.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
 
 				setTotal(allEvents.length)
@@ -158,8 +158,6 @@ export default function ActivityPage() {
 		(events: ConversationActivityEvent[]) => {
 			let filtered = [...events]
 
-			// Search filter — matches the event summary/actor/type, OR the
-			// conversation's customer name, OR their phone number.
 			if (search.trim()) {
 				const term = search.trim().toLowerCase()
 
@@ -176,21 +174,16 @@ export default function ActivityPage() {
 				})
 			}
 
-			// Event type filter
 			if (eventTypeFilter !== "all") {
 				filtered = filtered.filter((event) => event.eventType === eventTypeFilter)
 			}
 
-			// Actor filter
 			if (actorFilter !== "all") {
 				filtered = filtered.filter((event) => event.actorType === actorFilter)
 			}
 
-			// Newest first, always re-asserted here in case events came from
-			// multiple conversations merged in a different order
 			filtered.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
 
-			// Pagination
 			const start = page * PAGE_SIZE
 
 			const end = start + PAGE_SIZE
@@ -228,6 +221,20 @@ export default function ActivityPage() {
 		router.push(`/conversations?id=${conversationId}`)
 	}
 
+	const toggleDetails = (eventId: string) => {
+		setExpandedDetails((prev) => {
+			const newSet = new Set(prev)
+
+			if (newSet.has(eventId)) {
+				newSet.delete(eventId)
+			} else {
+				newSet.add(eventId)
+			}
+
+			return newSet
+		})
+	}
+
 	const customerDisplayOf = useCallback(
 		(conversationId: string) => {
 			const label = conversationLabels.get(conversationId)
@@ -241,7 +248,6 @@ export default function ActivityPage() {
 		[conversationLabels]
 	)
 
-	// Get unique event types for filter dropdown
 	const uniqueEventTypes = Array.from(new Set(activities.flatMap((a) => a.events.map((e) => e.eventType))))
 
 	const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -263,7 +269,6 @@ export default function ActivityPage() {
 				</div>
 			}>
 			<section className='card overflow-hidden'>
-				{/* Filters - same design as Leads page */}
 				<header className='flex flex-col gap-3 border-b border-ink-200 px-5 py-4 dark:border-ink-700 sm:flex-row sm:items-center sm:justify-between'>
 					<div className='flex items-center gap-2'>
 						<Activity className='h-4 w-4 text-brand-500' aria-hidden='true' />
@@ -321,7 +326,20 @@ export default function ActivityPage() {
 					</div>
 				</header>
 
-				{/* Activity List */}
+				<div className='hidden border-b border-ink-200 bg-ink-50/50 px-5 py-2.5 dark:border-ink-700 dark:bg-ink-800/30 sm:grid sm:grid-cols-12'>
+					<div className='col-span-3 text-xs font-medium text-ink-500 dark:text-ink-400'>{t("activity.colEvent")}</div>
+					<div className='col-span-2 text-xs font-medium text-ink-500 dark:text-ink-400'>{t("activity.colActor")}</div>
+					<div className='col-span-3 text-xs font-medium text-ink-500 dark:text-ink-400'>
+						{t("activity.colConversation")}
+					</div>
+					<div className='col-span-2 text-xs font-medium text-ink-500 dark:text-ink-400'>
+						{t("activity.colDateTime")}
+					</div>
+					<div className='col-span-2 text-xs font-medium text-ink-500 dark:text-ink-400'>
+						{t("activity.colActions")}
+					</div>
+				</div>
+
 				{loading && filteredEvents.length === 0 ? (
 					<ul className='space-y-3 p-5'>
 						{[0, 1, 2, 3].map((index) => (
@@ -332,75 +350,105 @@ export default function ActivityPage() {
 					<EmptyState icon={<Activity className='h-5 w-5' aria-hidden='true' />} title={t("activity.empty")} />
 				) : (
 					<ul className='divide-y divide-ink-100 dark:divide-ink-700/70'>
-						{filteredEvents.map((event) => (
-							<li
-								key={event.id}
-								className='flex flex-wrap items-start gap-3 px-5 py-4 transition-colors hover:bg-ink-50/50 dark:hover:bg-ink-700/30'
-								onClick={() => handleConversationClick(event.conversationId)}>
-								{/* Icon - same as before */}
-								<div
-									className={cn(
-										"flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-										getEventColor(event.eventType)
-									)}>
-									{getEventIcon(event.eventType)}
-								</div>
+						{filteredEvents.map((event) => {
+							const isExpanded = expandedDetails.has(String(event.id))
 
-								{/* Content */}
-								<div className='min-w-0 flex-1'>
-									<div className='flex flex-wrap items-center gap-2'>
-										<span className='text-sm font-medium text-ink-900 dark:text-ink-50'>
-											{t(EVENT_LABELS[event.eventType] || event.eventType)}
-										</span>
+							const hasPayload = event.payload && Object.keys(event.payload).length > 0
 
-										<span className='flex items-center gap-1 rounded-full bg-ink-100 px-2 py-0.5 text-xs text-ink-600 dark:bg-ink-700 dark:text-ink-200'>
-											{getActorIcon(event.actorType)}
-											{event.actorName || t("activity.unknownActor")}
-										</span>
+							return (
+								<li
+									key={event.id}
+									className='group flex cursor-pointer flex-col px-5 py-4 transition-colors hover:bg-ink-50/50 dark:hover:bg-ink-700/30'
+									onClick={() => handleConversationClick(event.conversationId)}>
+									<div className='grid grid-cols-1 gap-2 sm:grid-cols-12 sm:gap-4'>
+										<div className='flex items-center gap-2 sm:col-span-3'>
+											<div
+												className={cn(
+													"flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+													getEventColor(event.eventType)
+												)}>
+												{getEventIcon(event.eventType)}
+											</div>
+											<span className='text-sm font-medium text-ink-900 dark:text-ink-50'>
+												{t(EVENT_LABELS[event.eventType] || event.eventType)}
+											</span>
+										</div>
+
+										<div className='flex items-center justify-center gap-1.5 sm:col-span-1'>
+											<span className='flex items-center gap-1 rounded-full bg-ink-100 px-2 py-0.5 text-xs text-ink-600 dark:bg-ink-700 dark:text-ink-200'>
+												{getActorIcon(event.actorType)}
+												{event.actorName || t("activity.unknownActor")}
+											</span>
+										</div>
+
+										<div className='flex items-center justify-center truncate sm:col-span-3'>
+											<span className='truncate text-sm text-ink-700 dark:text-ink-300' dir='auto'>
+												{customerDisplayOf(event.conversationId)}
+											</span>
+										</div>
+
+										<div className='flex items-center justify-center sm:col-span-2'>
+											<span className='text-sm text-ink-500 dark:text-ink-400'>{formatDateTime(event.occurredAt)}</span>
+										</div>
+
+										<div className='flex flex-col-reverse items-center gap-1 sm:col-span-3'>
+											{hasPayload && (
+												<button
+													type='button'
+													onClick={(e) => {
+														e.stopPropagation()
+														toggleDetails(String(event.id))
+													}}
+													className='btn-ghost px-2 py-1 text-xs'
+													aria-label={isExpanded ? t("activity.hideDetails") : t("activity.showDetails")}
+													title={isExpanded ? t("activity.hideDetails") : t("activity.showDetails")}>
+													{isExpanded ? (
+														<EyeOff className='h-3.5 w-3.5' aria-hidden='true' />
+													) : (
+														<Eye className='h-3.5 w-3.5' aria-hidden='true' />
+													)}
+													<span className='hidden sm:inline'>
+														{isExpanded ? t("activity.hideDetails") : t("activity.showDetails")}
+													</span>
+												</button>
+											)}
+											<button
+												type='button'
+												onClick={(e) => {
+													e.stopPropagation()
+													handleConversationClick(event.conversationId)
+												}}
+												className='btn-ghost px-2 py-1 text-xs'
+												aria-label={t("activity.viewConversation")}
+												title={t("activity.viewConversation")}>
+												<Activity className='h-3.5 w-3.5' aria-hidden='true' />
+												<span className='hidden sm:inline'>{t("activity.viewConversation")}</span>
+											</button>
+										</div>
 									</div>
 
-									<p className='mt-0.5 text-sm text-ink-600 dark:text-ink-300'>{event.summary}</p>
-
-									<div className='mt-1 flex items-center gap-3 text-xs text-ink-400 dark:text-ink-500'>
-										<span>{formatDateTime(event.occurredAt)}</span>
-										<span>•</span>
-										<span className='truncate' dir='auto'>
-											{customerDisplayOf(event.conversationId)}
-										</span>
+									<div className='mt-1 sm:hidden'>
+										<p className='text-sm text-ink-600 dark:text-ink-300'>{event.summary}</p>
 									</div>
 
-									{/* Payload details */}
-									{event.payload && Object.keys(event.payload).length > 0 && (
-										<details className='mt-2'>
-											<summary className='cursor-pointer text-xs text-ink-400 hover:text-ink-600 dark:hover:text-ink-300'>
-												{t("activity.showDetails")}
-											</summary>
-											<pre className='mt-1 overflow-x-auto rounded-lg bg-ink-50 p-2 text-xs dark:bg-ink-800/50'>
+									{isExpanded && hasPayload && (
+										<div className='mt-3 overflow-hidden rounded-lg border border-ink-200 bg-ink-50/50 p-3 dark:border-ink-700 dark:bg-ink-800/30'>
+											<pre className='max-h-60 overflow-x-auto text-xs text-ink-700 dark:text-ink-300'>
 												{JSON.stringify(event.payload, null, 2)}
 											</pre>
-										</details>
+										</div>
 									)}
-								</div>
 
-								{/* Conversation link - same as Leads page style */}
-								<button
-									type='button'
-									onClick={(e) => {
-										e.stopPropagation()
-										handleConversationClick(event.conversationId)
-									}}
-									className='btn-ghost shrink-0'
-									aria-label={t("activity.viewConversation")}
-									title={t("activity.viewConversation")}>
-									<Activity className='h-4 w-4' aria-hidden='true' />
-									<span className='hidden sm:inline'>{t("activity.viewConversation")}</span>
-								</button>
-							</li>
-						))}
+									<div className='hidden sm:block'>
+										<p className='mt-0.5 text-sm text-ink-600 dark:text-ink-300'>{event.summary}</p>
+									</div>
+								</li>
+							)
+						})}
 					</ul>
 				)}
 
-				{/* Pagination - same design as Leads page */}
+				{/* Pagination */}
 				{totalPages > 1 ? (
 					<div className='flex items-center justify-center gap-3 border-t border-ink-200 px-5 py-3 dark:border-ink-700'>
 						<button
@@ -412,7 +460,7 @@ export default function ActivityPage() {
 							<ChevronLeft className='h-4 w-4' aria-hidden='true' />
 						</button>
 						<span className='text-xs text-ink-500 dark:text-ink-400'>
-							{page + 1} / {totalPages}
+							{t("activity.page", { page: page + 1, total: totalPages })}
 						</span>
 						<button
 							type='button'
