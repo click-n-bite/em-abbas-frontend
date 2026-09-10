@@ -21,6 +21,7 @@ import {
 	FileText,
 	Headphones,
 	History,
+	Image as ImageIcon,
 	KeyRound,
 	ListChecks,
 	MapPin,
@@ -30,6 +31,7 @@ import {
 	MousePointerClick,
 	Paperclip,
 	Pencil,
+	Play,
 	Search,
 	Send,
 	SendHorizontal,
@@ -278,8 +280,11 @@ function LoadedMedia({
 	)
 }
 
-/** Message types that carry a `payload` and render their own text + widget instead of the plain text bubble. */
 const RICH_TYPES = new Set(["buttons", "list", "template", "otp", "location", "contacts", "flow"])
+
+const VISUAL_MEDIA_TYPES = new Set(["image", "video", "sticker"])
+
+const FILE_MEDIA_TYPES = new Set(["document", "audio"])
 
 function RichBody({ message }: { message: Message }) {
 	if (!message.text) return null
@@ -477,7 +482,6 @@ function MessageRichContent({ message, outbound }: { message: Message; outbound:
 	return null
 }
 
-/** Inbound button/list taps and template quick-replies: show the tapped choice as a small chip above the text. */
 function MessageTapHint({ message, outbound }: { message: Message; outbound: boolean }) {
 	const { t } = useI18n()
 
@@ -498,6 +502,227 @@ function MessageTapHint({ message, outbound }: { message: Message; outbound: boo
 			<MousePointerClick className='h-3 w-3' aria-hidden='true' />
 			{t("chat.rich.tapped")}
 		</p>
+	)
+}
+
+/** Grid tile for an image/video/sticker inside the Media tab. */
+function MediaThumb({ message, onOpen }: { message: Message; onOpen: () => void }) {
+	const { t } = useI18n()
+
+	const { url, loading, error } = useMediaBlobUrl(message.mediaId)
+
+	if (loading) {
+		return (
+			<div className='flex aspect-square items-center justify-center rounded-lg bg-ink-100 dark:bg-ink-900'>
+				<Spinner />
+			</div>
+		)
+	}
+
+	if (error || !url) {
+		return (
+			<div className='flex aspect-square flex-col items-center justify-center gap-1 rounded-lg bg-ink-100 p-2 text-center text-[10px] text-ink-400 dark:bg-ink-900'>
+				<AlertCircle className='h-4 w-4' aria-hidden='true' />
+				{t("chat.mediaFailed")}
+			</div>
+		)
+	}
+
+	if (message.type === "video") {
+		return (
+			<button
+				type='button'
+				onClick={onOpen}
+				className='group relative aspect-square overflow-hidden rounded-lg bg-black'
+				aria-label={t("chat.mediaPreview.video")}>
+				<video src={url} className='h-full w-full object-cover opacity-80 transition group-hover:opacity-60' muted />
+				<span className='absolute inset-0 flex items-center justify-center'>
+					<span className='flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white'>
+						<Play className='h-4 w-4 fill-current' aria-hidden='true' />
+					</span>
+				</span>
+			</button>
+		)
+	}
+
+	return (
+		<button
+			type='button'
+			onClick={onOpen}
+			className='group aspect-square overflow-hidden rounded-lg'
+			aria-label={message.filename ?? t("chat.image")}>
+			{/* eslint-disable-next-line @next/next/no-img-element -- blob: URL, next/image can't optimize it */}
+			<img
+				src={url}
+				alt={message.filename ?? t("chat.image")}
+				className='h-full w-full object-cover transition group-hover:opacity-90'
+			/>
+		</button>
+	)
+}
+
+/** Full-screen preview when a Media-tab thumbnail is tapped. */
+function MediaLightbox({ message, onClose }: { message: Message; onClose: () => void }) {
+	const { t } = useI18n()
+
+	const { url, loading, error } = useMediaBlobUrl(message.mediaId)
+
+	return (
+		<div
+			className='fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4'
+			onClick={onClose}
+			role='dialog'
+			aria-modal='true'>
+			<div onClick={(event) => event.stopPropagation()} className='max-h-full max-w-full'>
+				{loading ? (
+					<Spinner />
+				) : error || !url ? (
+					<p className='text-sm text-white'>{t("chat.mediaFailed")}</p>
+				) : message.type === "video" ? (
+					<video src={url} controls autoPlay className='max-h-[85vh] max-w-full rounded-lg' />
+				) : (
+					// eslint-disable-next-line @next/next/no-img-element
+					<img src={url} alt={message.filename ?? t("chat.image")} className='max-h-[85vh] max-w-full rounded-lg' />
+				)}
+			</div>
+
+			<button
+				type='button'
+				onClick={onClose}
+				className='absolute end-4 top-4 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20'
+				aria-label={t("common.close")}>
+				<X className='h-5 w-5' aria-hidden='true' />
+			</button>
+		</div>
+	)
+}
+
+/** List row for a document/voice message inside the Media tab. */
+function MediaListItem({ message }: { message: Message }) {
+	const { t, formatDateTime } = useI18n()
+
+	const { url, loading, error } = useMediaBlobUrl(message.mediaId)
+
+	if (message.type === "audio") {
+		return (
+			<div className='rounded-xl border border-ink-200 p-3 dark:border-ink-700'>
+				<div className='mb-2 flex items-center justify-between text-xs text-ink-500 dark:text-ink-400'>
+					<span className='flex items-center gap-1.5'>
+						<Mic className='h-3.5 w-3.5' aria-hidden='true' />
+						{t("chat.voiceMessage")}
+					</span>
+					<span dir='ltr'>{formatDateTime(message.createdAt)}</span>
+				</div>
+
+				{loading ? (
+					<Spinner />
+				) : error || !url ? (
+					<p className='text-xs text-rose-500'>{t("chat.mediaFailed")}</p>
+				) : (
+					<WhatsAppAudioPlayer src={url} sentTime={formatDateTime(message.createdAt)} />
+				)}
+			</div>
+		)
+	}
+
+	return (
+		<a
+			href={url ?? undefined}
+			download={message.filename ?? "file"}
+			className={cn(
+				"flex items-center gap-3 rounded-xl border border-ink-200 p-3 text-sm transition hover:bg-ink-50 dark:border-ink-700 dark:hover:bg-ink-700/40",
+				(!url || loading) && "pointer-events-none opacity-60"
+			)}>
+			<span className='flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-ink-100 text-ink-500 dark:bg-ink-900 dark:text-ink-300'>
+				{loading ? <Spinner /> : <FileText className='h-5 w-5' aria-hidden='true' />}
+			</span>
+			<span className='min-w-0 flex-1'>
+				<span className='block truncate font-medium text-ink-900 dark:text-ink-50'>
+					{message.filename ?? t("chat.download")}
+				</span>
+				<span dir='ltr' className='block text-xs text-ink-400'>
+					{formatDateTime(message.createdAt)}
+				</span>
+			</span>
+			{error ? (
+				<AlertCircle className='h-4 w-4 flex-shrink-0 text-rose-500' aria-hidden='true' />
+			) : (
+				<Download className='h-4 w-4 flex-shrink-0 text-ink-400' aria-hidden='true' />
+			)}
+		</a>
+	)
+}
+
+/** Media tab: images/videos in a grid, documents/voice notes in a list — sourced from the loaded message thread. */
+function MediaTab({ messages }: { messages: Message[] }) {
+	const { t } = useI18n()
+
+	const [selected, setSelected] = useState<Message | null>(null)
+
+	const visualMedia = useMemo(
+		() =>
+			messages
+				.filter((message) => VISUAL_MEDIA_TYPES.has(message.type) && message.mediaId)
+				.slice()
+				.reverse(),
+		[messages]
+	)
+
+	const fileMedia = useMemo(
+		() =>
+			messages
+				.filter((message) => FILE_MEDIA_TYPES.has(message.type) && message.mediaId)
+				.slice()
+				.reverse(),
+		[messages]
+	)
+
+	if (visualMedia.length === 0 && fileMedia.length === 0) {
+		return (
+			<div className='flex min-h-0 flex-1 items-center justify-center p-6'>
+				<EmptyState icon={<ImageIcon className='h-5 w-5' aria-hidden='true' />} title={t("chat.mediaEmpty")} />
+			</div>
+		)
+	}
+
+	return (
+		<div className='min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6'>
+			{visualMedia.length > 0 ? (
+				<section className='mb-6'>
+					<h3 className='mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-400'>
+						<ImageIcon className='h-3.5 w-3.5' aria-hidden='true' />
+						{t("chat.mediaImages")}
+						<span className='badge bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200'>
+							{visualMedia.length}
+						</span>
+					</h3>
+
+					<div className='grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5'>
+						{visualMedia.map((message) => (
+							<MediaThumb key={message.id} message={message} onOpen={() => setSelected(message)} />
+						))}
+					</div>
+				</section>
+			) : null}
+
+			{fileMedia.length > 0 ? (
+				<section>
+					<h3 className='mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-400'>
+						<FileText className='h-3.5 w-3.5' aria-hidden='true' />
+						{t("chat.mediaDocuments")}
+						<span className='badge bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200'>{fileMedia.length}</span>
+					</h3>
+
+					<div className='flex flex-col gap-2'>
+						{fileMedia.map((message) => (
+							<MediaListItem key={message.id} message={message} />
+						))}
+					</div>
+				</section>
+			) : null}
+
+			{selected ? <MediaLightbox message={selected} onClose={() => setSelected(null)} /> : null}
+		</div>
 	)
 }
 
@@ -536,7 +761,7 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 
 	const [hideBusy, setHideBusy] = useState(false)
 
-	const [activeTab, setActiveTab] = useState<"messages" | "activity">("messages")
+	const [activeTab, setActiveTab] = useState<"messages" | "media" | "activity">("messages")
 
 	const [searchOpen, setSearchOpen] = useState(false)
 
@@ -1491,24 +1716,40 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 				</div>
 			</header>
 
-			{canManageUsers ? (
-				<div
-					role='tablist'
-					className='flex flex-shrink-0 gap-1 border-b border-ink-200 bg-white px-3 pt-2 dark:border-ink-700 dark:bg-ink-800'>
-					<button
-						type='button'
-						role='tab'
-						aria-selected={activeTab === "messages"}
-						onClick={() => setActiveTab("messages")}
-						className={cn(
-							"flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition",
-							activeTab === "messages"
-								? "border-b-2 border-brand-600 text-brand-700 dark:text-brand-300"
-								: "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100"
-						)}>
-						<MessageSquare className='h-3.5 w-3.5' aria-hidden='true' />
-						{t("chat.tabMessages")}
-					</button>
+			<div
+				role='tablist'
+				className='flex flex-shrink-0 gap-1 border-b border-ink-200 bg-white px-3 pt-2 dark:border-ink-700 dark:bg-ink-800'>
+				<button
+					type='button'
+					role='tab'
+					aria-selected={activeTab === "messages"}
+					onClick={() => setActiveTab("messages")}
+					className={cn(
+						"flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition",
+						activeTab === "messages"
+							? "border-b-2 border-brand-600 text-brand-700 dark:text-brand-300"
+							: "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100"
+					)}>
+					<MessageSquare className='h-3.5 w-3.5' aria-hidden='true' />
+					{t("chat.tabMessages")}
+				</button>
+
+				<button
+					type='button'
+					role='tab'
+					aria-selected={activeTab === "media"}
+					onClick={() => setActiveTab("media")}
+					className={cn(
+						"flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition",
+						activeTab === "media"
+							? "border-b-2 border-brand-600 text-brand-700 dark:text-brand-300"
+							: "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100"
+					)}>
+					<ImageIcon className='h-3.5 w-3.5' aria-hidden='true' />
+					{t("chat.tabMedia")}
+				</button>
+
+				{canManageUsers ? (
 					<button
 						type='button'
 						role='tab'
@@ -1523,8 +1764,8 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 						<History className='h-3.5 w-3.5' aria-hidden='true' />
 						{t("chat.tabActivity")}
 					</button>
-				</div>
-			) : null}
+				) : null}
+			</div>
 
 			{searchOpen && activeTab === "messages" ? (
 				<div className='flex flex-shrink-0 items-center gap-2 border-b border-ink-200 bg-white px-3 py-2 dark:border-ink-700 dark:bg-ink-800'>
@@ -1585,6 +1826,8 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 
 			{activeTab === "activity" ? (
 				<ActivityPanel conversationId={conversation.id} active={activeTab === "activity"} />
+			) : activeTab === "media" ? (
+				<MediaTab messages={messages} />
 			) : (
 				<div ref={scrollRef} className='min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6'>
 					{loading ? (

@@ -184,7 +184,14 @@ const en = {
 		tabActivity: "Activity",
 		nameUpdated: "Chat name updated",
 		renameHint: "Enter a new name for the chat",
-		resetName: "Reset name"
+		resetName: "Reset name",
+		renameContact: "Rename Contact",
+		nameReset: "Contact name reset successfully",
+		tabMedia: "Media",
+		mediaImages: "Images & videos",
+		mediaDocuments: "Documents & voice messages",
+		mediaEmpty: "No media shared in this conversation yet.",
+		voiceMessage: "Voice message"
 	},
 	mode: { bot: "AI", waiting: "Waiting", agent: "Agent" },
 	notifications: {
@@ -374,7 +381,14 @@ const en = {
 		colConversation: "Conversation",
 		colName: "Name",
 		colNumber: "Number",
-		colDetails: "Details"
+		colDetails: "Details",
+		showMore: "Show more",
+		showLess: "Show less",
+		fullNote: "Full note",
+		lastActivity: "Last activity",
+		by: "By",
+		sortBy: "Sort by:",
+		rowsPerPage: "Rows per page"
 	},
 	activity: {
 		tabLabel: "Activity",

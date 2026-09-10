@@ -83,7 +83,7 @@ export function Sidebar({ open, onClose }: Props) {
 										: "text-ink-600 hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-700"
 								)}>
 								<Icon className='h-4 w-4 shrink-0' aria-hidden='true' />
-								<span className='flex-1 truncate'>{t(item.labelKey)}</span>
+								<span className='flex-1 truncate capitalize'>{t(item.labelKey)}</span>
 								{badge ? (
 									<span className='badge bg-rose-500 tabular-nums text-white'>{badge > 99 ? "99+" : badge}</span>
 								) : null}

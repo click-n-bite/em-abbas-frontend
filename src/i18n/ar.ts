@@ -148,6 +148,13 @@ const ar: Dictionary = {
 		nameUpdated: "تم تحديث اسم المحادثة",
 		renameHint: "أدخل اسماً جديداً للمحادثة",
 		resetName: "إعادة تعيين الاسم",
+		renameContact: "إعادة تسمية جهة الاتصال",
+		nameReset: "تم تحديث اسم جهة الاتصال بنجاح",
+		tabMedia: "الوسائط",
+		mediaImages: "الصور والفيديوهات",
+		mediaDocuments: "المستندات والرسائل الصوتية",
+		mediaEmpty: "لم تتم مشاركة أي وسائط في هذه المحادثة بعد.",
+		voiceMessage: "رسالة صوتية",
 		rich: {
 			menu: "القائمة",
 			template: "قالب",
@@ -383,7 +390,14 @@ const ar: Dictionary = {
 		colConversation: "المحادثة",
 		colName: "الاسم",
 		colNumber: "الرقم",
-		colDetails: "التفاصيل"
+		colDetails: "التفاصيل",
+		showMore: "عرض المزيد",
+		showLess: "عرض أقل",
+		fullNote: "الملاحظة الكاملة",
+		lastActivity: "آخر نشاط",
+		by: "بواسطة",
+		sortBy: "ترتيب حسب:",
+		rowsPerPage: "عدد الصفوف"
 	},
 	activity: {
 		tabLabel: "السجل",
