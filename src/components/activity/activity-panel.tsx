@@ -76,7 +76,13 @@ export function ActivityPanel({ conversationId, active }: Props) {
 
 		activityApi
 			.get(conversationId, controller.signal)
-			.then((response) => setEvents(response.events))
+			.then((response) => {
+				const sorted = [...response.events].sort(
+					(a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime()
+				)
+
+				setEvents(sorted)
+			})
 			.catch((error) => {
 				if ((error as Error)?.name === "AbortError") return
 
