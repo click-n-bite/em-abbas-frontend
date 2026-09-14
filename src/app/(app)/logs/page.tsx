@@ -356,7 +356,7 @@ export default function ActivityPage() {
 				</div>
 			}>
 			<section className='card overflow-hidden'>
-				<header className='flex flex-wrap justify-end gap-3 border-b border-ink-200 px-5 py-4 dark:border-ink-700'>
+				<header className='flex flex-wrap gap-3 border-b border-ink-200 px-5 py-4 dark:border-ink-700 md:justify-between'>
 					<div className='relative mt-5 h-full'>
 						<Search
 							className='pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-ink-400'

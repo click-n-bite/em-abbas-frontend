@@ -249,8 +249,18 @@ function LoadedMedia({
 						onClick={() => setLightbox(false)}
 						role='dialog'
 						aria-modal='true'>
-						{/* eslint-disable-next-line @next/next/no-img-element */}
-						<img src={url} alt={message.filename ?? t("chat.image")} className='max-h-full max-w-full rounded-lg' />
+						<div onClick={(event) => event.stopPropagation()} className='max-h-full max-w-full'>
+							{/* eslint-disable-next-line @next/next/no-img-element */}
+							<img src={url} alt={message.filename ?? t("chat.image")} className='max-h-[85vh] max-w-full rounded-lg' />
+						</div>
+
+						<button
+							type='button'
+							onClick={() => setLightbox(false)}
+							className='absolute end-4 top-4 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20'
+							aria-label={t("common.close")}>
+							<X className='h-5 w-5' aria-hidden='true' />
+						</button>
 					</div>
 				) : null}
 			</>
@@ -1027,6 +1037,8 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 
 	const canReply = conversation?.mode === "agent" && mine && !blocked
 
+	const assigneeName = conversation?.assignee?.name?.trim() || conversation?.assignee?.email || null
+
 	const lockedReason =
 		conversation == null
 			? null
@@ -1035,7 +1047,9 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 				: conversation.mode !== "agent"
 					? t("chat.inputLockedBot")
 					: !mine
-						? t("chat.inputLockedOther")
+						? canManageUsers && assigneeName
+							? t("chat.inputLockedOtherNamed", { name: assigneeName })
+							: t("chat.inputLockedOther")
 						: null
 
 	const phoneForBlockLookup = conversation?.phone ?? null

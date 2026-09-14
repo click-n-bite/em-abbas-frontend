@@ -1,6 +1,6 @@
 const en = {
 	common: {
-		appName: "EM ABBAS",
+		appName: "EM ABBASS",
 		appTagline: "WhatsApp support console",
 		loading: "Loading…",
 		save: "Save",
@@ -95,9 +95,10 @@ const en = {
 		handoff: "Hand back to AI",
 		handingOff: "Handing over…",
 		inputPlaceholder: "Write a reply…",
-		inputLockedBot: "The AI is handling this chat. Take over to reply.",
+		inputLockedBot: "The AI is handling this chat.",
 		inputLockedOther: "Another agent owns this conversation.",
 		inputLockedViewOnly: "You have view-only access to this conversation.",
+		inputLockedOtherNamed: "{name} is handling this conversation",
 		send: "Send",
 		sending: "Sending…",
 		emptyThread: "No messages in this conversation yet.",
@@ -382,6 +383,8 @@ const en = {
 		colName: "Name",
 		colNumber: "Number",
 		colDetails: "Details",
+		colSource: "Source",
+		colStatus: "Status",
 		showMore: "Show more",
 		showLess: "Show less",
 		fullNote: "Full note",
