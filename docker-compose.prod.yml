@@ -1,0 +1,40 @@
+# CI/server compose. Image comes from GitLab Container Registry.
+# Joins ema_net so Caddy can reach the portal by name. No public port —
+# only Caddy publishes 80/443.
+name: portal
+
+services:
+  portal:
+    image: ${PORTAL_IMAGE:?PORTAL_IMAGE is required}
+    container_name: ema-portal
+    restart: unless-stopped
+    env_file:
+      - ${PORTAL_ENV_FILE:-.env.production}
+    environment:
+      EMA_PUBLIC_API_URL: ${EMA_PUBLIC_API_URL:-https://ema-api.duckdns.org}
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    networks:
+      - ema_net
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 25s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  ema_net:
+    external: true
+    name: ema_net

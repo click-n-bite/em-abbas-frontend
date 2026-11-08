@@ -1,0 +1,40 @@
+# TLS edge. One-time on the server. Portal/API deploys do not recreate this.
+# Publishes only 80/443. Talks to portal, EMA, and WhatsApp MW on ema_net.
+name: edge
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: ema-edge
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+      AGENT_HOST: ${AGENT_HOST:-agent.emabbass.com}
+      API_HOST: ${API_HOST:-api.emabbass.com}
+      WHATSAPP_HOST: ${WHATSAPP_HOST:-whatsapp.emabbass.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - ema_net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  caddy_data:
+    name: ema_caddy_data
+  caddy_config:
+    name: ema_caddy_config
+
+networks:
+  ema_net:
+    external: true
+    name: ema_net

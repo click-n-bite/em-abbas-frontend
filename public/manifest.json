@@ -1,0 +1,10 @@
+{
+  "name": "EM ABBASS — WhatsApp support console",
+  "short_name": "EM ABBASS",
+  "description": "Agent console for the EMA WhatsApp support API",
+  "start_url": "/overview",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1f63eb"
+}

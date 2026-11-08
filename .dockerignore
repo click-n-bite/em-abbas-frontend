@@ -1,0 +1,11 @@
+.git
+.gitignore
+.next
+node_modules
+docs
+deploy
+edge
+*.md
+.gitlab-ci.yml
+.env
+.env.*

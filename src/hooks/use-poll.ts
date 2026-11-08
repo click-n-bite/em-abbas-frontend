@@ -1,21 +1,25 @@
-"use client"
+"use client";
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef } from "react";
 
-export function usePoll(callback: () => void, intervalMs: number, enabled = true) {
-	const ref = useRef(callback)
+export function usePoll(
+  callback: () => void,
+  intervalMs: number,
+  enabled = true,
+) {
+  const ref = useRef(callback);
 
-	ref.current = callback
+  ref.current = callback;
 
-	useEffect(() => {
-		if (!enabled || intervalMs <= 0) return
+  useEffect(() => {
+    if (!enabled || intervalMs <= 0) return;
 
-		const tick = () => {
-			if (document.visibilityState === "visible") ref.current()
-		}
+    const tick = () => {
+      if (document.visibilityState === "visible") ref.current();
+    };
 
-		const id = window.setInterval(tick, intervalMs)
+    const id = window.setInterval(tick, intervalMs);
 
-		return () => window.clearInterval(id)
-	}, [enabled, intervalMs])
+    return () => window.clearInterval(id);
+  }, [enabled, intervalMs]);
 }

@@ -1,101 +1,43 @@
-"use client"
+"use client";
 
-import { useEffect, useRef, useState } from "react"
-import { Client, type IMessage, type StompSubscription } from "@stomp/stompjs"
-import SockJS from "sockjs-client"
-import { SOCKJS_URL } from "@/lib/config"
-import { useAuth } from "@/providers/auth-provider"
+import { useEffect, useRef } from "react";
+import {
+  useRealtimeContext,
+  type ConnectionState,
+  type EventMeta,
+  type RealtimeHandler,
+} from "@/providers/realtime-provider";
 
-export type ConnectionState = "connecting" | "connected" | "offline"
-
-export interface EventMeta {
-	topic: string
-	body: string
-	receivedAt: string
-}
-
-type Handler = (payload: unknown, meta: EventMeta) => void
+export type { ConnectionState, EventMeta };
 
 interface Options {
-	topics: string[]
-	onEvent: Handler
-	enabled?: boolean
+  topics: string[];
+  onEvent: RealtimeHandler;
+  enabled?: boolean;
 }
 
-export function useRealtime({ topics, onEvent, enabled = true }: Options): ConnectionState {
-	const { token } = useAuth()
+export function useRealtime({
+  topics,
+  onEvent,
+  enabled = true,
+}: Options): ConnectionState {
+  const { state, subscribe } = useRealtimeContext();
 
-	const [state, setState] = useState<ConnectionState>("connecting")
+  const handlerRef = useRef(onEvent);
 
-	const handlerRef = useRef(onEvent)
+  handlerRef.current = onEvent;
 
-	const subsRef = useRef<StompSubscription[]>([])
+  const topicKey = topics.filter(Boolean).sort().join("|");
 
-	handlerRef.current = onEvent
+  useEffect(() => {
+    if (!enabled || !topicKey) return;
 
-	const topicKey = topics.filter(Boolean).sort().join("|")
+    return subscribe(topicKey.split("|"), (payload, meta) => {
+      handlerRef.current(payload, meta);
+    });
+  }, [enabled, subscribe, topicKey]);
 
-	useEffect(() => {
-		if (!enabled || !token || !topicKey) {
-			setState("offline")
+  if (!enabled || !topicKey) return "offline";
 
-			return
-		}
-
-		let disposed = false
-
-		setState("connecting")
-
-		const client = new Client({
-			webSocketFactory: () => new SockJS(SOCKJS_URL) as unknown as WebSocket,
-			connectHeaders: { Authorization: `Bearer ${token}` },
-			reconnectDelay: 4000,
-			heartbeatIncoming: 10_000,
-			heartbeatOutgoing: 10_000,
-			debug: () => undefined
-		})
-
-		const deliver = (topic: string) => (frame: IMessage) => {
-			const meta: EventMeta = { topic, body: frame.body, receivedAt: new Date().toISOString() }
-
-			let payload: unknown = null
-
-			try {
-				payload = JSON.parse(frame.body)
-			} catch {
-				payload = null
-			}
-
-			handlerRef.current(payload, meta)
-		}
-
-		client.onConnect = () => {
-			if (disposed) return
-
-			setState("connected")
-			subsRef.current = topicKey.split("|").map((topic) => client.subscribe(topic, deliver(topic)))
-		}
-
-		client.onWebSocketClose = () => {
-			if (!disposed) setState("connecting")
-		}
-		client.onStompError = () => {
-			if (!disposed) setState("offline")
-		}
-
-		client.activate()
-
-		return () => {
-			disposed = true
-			subsRef.current.forEach((sub) => {
-				try {
-					sub.unsubscribe()
-				} catch {}
-			})
-			subsRef.current = []
-			void client.deactivate()
-		}
-	}, [enabled, token, topicKey])
-
-	return state
+  return state;
 }

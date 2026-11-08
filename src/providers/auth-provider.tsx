@@ -1,223 +1,258 @@
-"use client"
+"use client";
 
-import { useRouter } from "next/navigation"
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { api, clearSession, decodeJwt, refreshAccessToken } from "@/lib/api"
-import { resolveRole, STORAGE_KEYS } from "@/lib/config"
-import type { AccessTokenClaims, Role, SessionAgent } from "@/lib/types"
+import { useRouter } from "next/navigation";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { api, clearSession, decodeJwt, refreshAccessToken } from "@/lib/api";
+import { resolveRole, STORAGE_KEYS } from "@/lib/config";
+import { clearLocalPushState, unsubscribeBrowser } from "@/lib/push";
+import type { AccessTokenClaims, Role, SessionAgent } from "@/lib/types";
+import { safeReturnTo, withReturnTo } from "@/lib/return-to";
 
 interface AuthContextValue {
-	agent: SessionAgent | null
-	token: string | null
-	ready: boolean
-	role: Role
-	canManageUsers: boolean
-	signIn: (username: string, password: string) => Promise<void>
-	signOut: () => void
+  agent: SessionAgent | null;
+  token: string | null;
+  ready: boolean;
+  role: Role;
+  canManageUsers: boolean;
+  canManageBlockedNumbers: boolean;
+  signIn: (username: string, password: string) => Promise<void>;
+  signOut: () => void;
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null)
+const AuthContext = createContext<AuthContextValue | null>(null);
 
-const REFRESH_BUFFER_MS = 60_000
-const MIN_SCHEDULE_MS = 3_000
+const REFRESH_BUFFER_MS = 60_000;
+
+const MIN_SCHEDULE_MS = 3_000;
 
 function isExpired(session: SessionAgent | null): boolean {
-	return Boolean(session?.expiresAt) && Date.now() >= (session?.expiresAt ?? 0)
+  return Boolean(session?.expiresAt) && Date.now() >= (session?.expiresAt ?? 0);
 }
 
-function sessionFromToken(accessToken: string, base: SessionAgent | null): SessionAgent {
-	const claims = decodeJwt(accessToken) as Partial<AccessTokenClaims> | null
+function sessionFromToken(
+  accessToken: string,
+  base: SessionAgent | null,
+): SessionAgent {
+  const claims = decodeJwt(accessToken) as Partial<AccessTokenClaims> | null;
 
-	const username = claims?.sub ?? base?.email ?? base?.name ?? ""
+  const username = claims?.sub ?? base?.email ?? base?.name ?? "";
 
-	return {
-		id: claims?.uid !== undefined ? String(claims.uid) : (base?.id ?? username),
-		email: base?.email ?? username,
-		name: base?.name ?? username,
-		role: base?.role ?? resolveRole(username, claims?.role),
-		expiresAt: claims?.exp ? claims.exp * 1000 : Date.now() + 15 * 60 * 1000
-	}
+  return {
+    id: claims?.uid !== undefined ? String(claims.uid) : (base?.id ?? username),
+    email: base?.email ?? username,
+    name: base?.name ?? username,
+    role: base?.role ?? resolveRole(username, claims?.role),
+    expiresAt: claims?.exp ? claims.exp * 1000 : Date.now() + 15 * 60 * 1000,
+  };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-	const router = useRouter()
+  const router = useRouter();
 
-	const [agent, setAgent] = useState<SessionAgent | null>(null)
+  const [agent, setAgent] = useState<SessionAgent | null>(null);
 
-	const [token, setToken] = useState<string | null>(null)
+  const [token, setToken] = useState<string | null>(null);
 
-	const [ready, setReady] = useState(false)
+  const [ready, setReady] = useState(false);
 
-	const refreshTimer = useRef<number | null>(null)
+  const refreshTimer = useRef<number | null>(null);
 
-	const loggingOut = useRef(false)
+  const loggingOut = useRef(false);
 
-	const logout = useCallback(() => {
-		if (loggingOut.current) return
+  const logout = useCallback(() => {
+    if (loggingOut.current) return;
 
-		loggingOut.current = true
+    loggingOut.current = true;
 
-		clearSession()
-		setToken(null)
-		setAgent(null)
-		router.replace("/login")
-	}, [router])
+    const current = safeReturnTo(
+      `${window.location.pathname}${window.location.search}`,
+    );
 
-	const applySession = useCallback((accessToken: string, base: SessionAgent | null) => {
-		const session = sessionFromToken(accessToken, base)
+    void unsubscribeBrowser();
+    clearLocalPushState();
 
-		window.localStorage.setItem(STORAGE_KEYS.token, accessToken)
-		window.localStorage.setItem(STORAGE_KEYS.agent, JSON.stringify(session))
+    clearSession();
+    setToken(null);
+    setAgent(null);
+    router.replace(withReturnTo("/login", current));
+  }, [router]);
 
-		loggingOut.current = false
-		setToken(accessToken)
-		setAgent(session)
+  const applySession = useCallback(
+    (accessToken: string, base: SessionAgent | null) => {
+      const session = sessionFromToken(accessToken, base);
 
-		return session
-	}, [])
+      window.localStorage.setItem(STORAGE_KEYS.token, accessToken);
+      window.localStorage.setItem(STORAGE_KEYS.agent, JSON.stringify(session));
 
-	useEffect(() => {
-		const onExpired = () => logout()
+      loggingOut.current = false;
+      setToken(accessToken);
+      setAgent(session);
 
-		const onRefreshed = (event: Event) => {
-			const accessToken = (event as CustomEvent<string>).detail
+      return session;
+    },
+    [],
+  );
 
-			if (accessToken) applySession(accessToken, agent)
-		}
+  useEffect(() => {
+    const onExpired = () => logout();
 
-		window.addEventListener("ema:session-expired", onExpired)
-		window.addEventListener("ema:token-refreshed", onRefreshed)
+    const onRefreshed = (event: Event) => {
+      const accessToken = (event as CustomEvent<string>).detail;
 
-		return () => {
-			window.removeEventListener("ema:session-expired", onExpired)
-			window.removeEventListener("ema:token-refreshed", onRefreshed)
-		}
-	}, [agent, applySession, logout])
+      if (accessToken) applySession(accessToken, agent);
+    };
 
-	useEffect(() => {
-		let cancelled = false
+    window.addEventListener("ema:session-expired", onExpired);
+    window.addEventListener("ema:token-refreshed", onRefreshed);
 
-		async function bootstrap() {
-			try {
-				const storedToken = window.localStorage.getItem(STORAGE_KEYS.token)
+    return () => {
+      window.removeEventListener("ema:session-expired", onExpired);
+      window.removeEventListener("ema:token-refreshed", onRefreshed);
+    };
+  }, [agent, applySession, logout]);
 
-				const storedAgent = window.localStorage.getItem(STORAGE_KEYS.agent)
+  useEffect(() => {
+    let cancelled = false;
 
-				const parsedAgent = storedAgent ? (JSON.parse(storedAgent) as SessionAgent) : null
+    async function bootstrap() {
+      try {
+        const storedToken = window.localStorage.getItem(STORAGE_KEYS.token);
 
-				if (!storedToken || !parsedAgent) {
-					if (storedToken || storedAgent) clearSession()
+        const storedAgent = window.localStorage.getItem(STORAGE_KEYS.agent);
 
-					return
-				}
+        const parsedAgent = storedAgent
+          ? (JSON.parse(storedAgent) as SessionAgent)
+          : null;
 
-				if (!isExpired(parsedAgent)) {
-					setToken(storedToken)
-					setAgent(parsedAgent)
+        if (!storedToken || !parsedAgent) {
+          if (storedToken || storedAgent) clearSession();
 
-					return
-				}
+          return;
+        }
 
-				const freshToken = await refreshAccessToken()
+        if (!isExpired(parsedAgent)) {
+          setToken(storedToken);
+          setAgent(parsedAgent);
 
-				if (cancelled) return
+          return;
+        }
 
-				if (freshToken) {
-					applySession(freshToken, parsedAgent)
-				} else {
-					clearSession()
-				}
-			} catch {
-				clearSession()
-			} finally {
-				if (!cancelled) setReady(true)
-			}
-		}
+        const freshToken = await refreshAccessToken();
 
-		void bootstrap()
+        if (cancelled) return;
 
-		return () => {
-			cancelled = true
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [])
+        if (freshToken) {
+          applySession(freshToken, parsedAgent);
+        } else {
+          clearSession();
+        }
+      } catch {
+        clearSession();
+      } finally {
+        if (!cancelled) setReady(true);
+      }
+    }
 
-	useEffect(() => {
-		if (refreshTimer.current) {
-			window.clearTimeout(refreshTimer.current)
-			refreshTimer.current = null
-		}
+    void bootstrap();
 
-		if (!agent?.expiresAt) return
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-		const delay = Math.max(agent.expiresAt - Date.now() - REFRESH_BUFFER_MS, MIN_SCHEDULE_MS)
+  useEffect(() => {
+    if (refreshTimer.current) {
+      window.clearTimeout(refreshTimer.current);
+      refreshTimer.current = null;
+    }
 
-		refreshTimer.current = window.setTimeout(async () => {
-			const freshToken = await refreshAccessToken()
+    if (!agent?.expiresAt) return;
 
-			if (freshToken) {
-				applySession(freshToken, agent)
-			} else {
-				logout()
-			}
-		}, delay)
+    const delay = Math.max(
+      agent.expiresAt - Date.now() - REFRESH_BUFFER_MS,
+      MIN_SCHEDULE_MS,
+    );
 
-		return () => {
-			if (refreshTimer.current) window.clearTimeout(refreshTimer.current)
-		}
-	}, [agent, applySession, logout])
+    refreshTimer.current = window.setTimeout(async () => {
+      const freshToken = await refreshAccessToken();
 
-	const signIn = useCallback(
-		async (username: string, password: string) => {
-			const result = await api.login(username, password)
+      if (freshToken) {
+        applySession(freshToken, agent);
+      } else {
+        logout();
+      }
+    }, delay);
 
-			const claims = decodeJwt(result.accessToken) as Partial<AccessTokenClaims> | null
+    return () => {
+      if (refreshTimer.current) window.clearTimeout(refreshTimer.current);
+    };
+  }, [agent, applySession, logout]);
 
-			const resolvedUsername = claims?.sub ?? username
+  const signIn = useCallback(async (username: string, password: string) => {
+    const result = await api.login(username, password);
 
-			const session: SessionAgent = {
-				id: claims?.uid !== undefined ? String(claims.uid) : resolvedUsername,
-				email: resolvedUsername,
-				name: resolvedUsername,
-				role: resolveRole(resolvedUsername, claims?.role),
-				expiresAt: claims?.exp ? claims.exp * 1000 : Date.now() + result.expiresInSeconds * 1000
-			}
+    const claims = decodeJwt(
+      result.accessToken,
+    ) as Partial<AccessTokenClaims> | null;
 
-			window.localStorage.setItem(STORAGE_KEYS.token, result.accessToken)
-			window.localStorage.setItem(STORAGE_KEYS.refreshToken, result.refreshToken)
-			window.localStorage.setItem(STORAGE_KEYS.agent, JSON.stringify(session))
-			loggingOut.current = false
-			setToken(result.accessToken)
-			setAgent(session)
-		},
-		[]
-	)
+    const resolvedUsername = claims?.sub ?? username;
 
-	const signOut = useCallback(() => {
-		logout()
-	}, [logout])
+    const session: SessionAgent = {
+      id: claims?.uid !== undefined ? String(claims.uid) : resolvedUsername,
+      email: resolvedUsername,
+      name: resolvedUsername,
+      role: resolveRole(resolvedUsername, claims?.role),
+      expiresAt: claims?.exp
+        ? claims.exp * 1000
+        : Date.now() + result.expiresInSeconds * 1000,
+    };
 
-	const value = useMemo<AuthContextValue>(() => {
-		const role = agent?.role ?? "agent"
+    window.localStorage.setItem(STORAGE_KEYS.token, result.accessToken);
+    window.localStorage.setItem(STORAGE_KEYS.refreshToken, result.refreshToken);
+    window.localStorage.setItem(STORAGE_KEYS.agent, JSON.stringify(session));
+    loggingOut.current = false;
+    setToken(result.accessToken);
+    setAgent(session);
+  }, []);
 
-		return {
-			agent,
-			token,
-			ready,
-			role,
-			canManageUsers: role === "superadmin" || role === "admin",
-			signIn,
-			signOut
-		}
-	}, [agent, token, ready, signIn, signOut])
+  const signOut = useCallback(() => {
+    logout();
+  }, [logout]);
 
-	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  const value = useMemo<AuthContextValue>(() => {
+    const role = agent?.role ?? "agent";
+
+    return {
+      agent,
+      token,
+      ready,
+      role,
+      canManageUsers: role === "superadmin" || role === "admin",
+      canManageBlockedNumbers:
+        Boolean(agent && token) &&
+        (role === "superadmin" || role === "admin" || role === "agent"),
+      signIn,
+      signOut,
+    };
+  }, [agent, token, ready, signIn, signOut]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {
-	const ctx = useContext(AuthContext)
+  const ctx = useContext(AuthContext);
 
-	if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>")
+  if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
 
-	return ctx
+  return ctx;
 }

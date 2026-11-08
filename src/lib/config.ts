@@ -1,73 +1,79 @@
-import type { Locale, Role } from "./types"
+import type { Locale, Role } from "./types";
 
-const RAW_API = process.env.NEXT_PUBLIC_API_URL ?? "https://ema-api.duckdns.org"
+const RAW_API = process.env.NEXT_PUBLIC_API_URL ?? "https://ema-api.duckdns.org";
 
-export const API_URL = RAW_API.replace(/\/+$/, "")
+export const API_URL = RAW_API.replace(/\/+$/, "");
 
-export const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? `${API_URL.replace(/^http/, "ws")}/ws`
+export const WS_URL =
+  process.env.NEXT_PUBLIC_WS_URL ?? `${API_URL.replace(/^http/, "ws")}/ws`;
 
-export const SOCKJS_URL = `${API_URL}/ws`
+export const SOCKJS_URL = `${API_URL}/ws`;
 
-export const DEFAULT_LOCALE: Locale = process.env.NEXT_PUBLIC_DEFAULT_LOCALE === "ar" ? "ar" : "en"
+export const DEFAULT_LOCALE: Locale =
+  process.env.NEXT_PUBLIC_DEFAULT_LOCALE === "ar" ? "ar" : "en";
 
-const RAW_MAX_NOTE_LENGTH = Number(process.env.NEXT_PUBLIC_MAX_NOTE_LENGTH)
+const RAW_MAX_NOTE_LENGTH = Number(process.env.NEXT_PUBLIC_MAX_NOTE_LENGTH);
 
 export const MAX_NOTE_LENGTH =
-	Number.isFinite(RAW_MAX_NOTE_LENGTH) && RAW_MAX_NOTE_LENGTH > 0 ? RAW_MAX_NOTE_LENGTH : 200
+  Number.isFinite(RAW_MAX_NOTE_LENGTH) && RAW_MAX_NOTE_LENGTH > 0
+    ? RAW_MAX_NOTE_LENGTH
+    : 200;
 
 function emailList(value: string | undefined): string[] {
-	return (value ?? "")
-		.split(",")
-		.map((entry) => entry.trim().toLowerCase())
-		.filter(Boolean)
+  return (value ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
 }
 
-const SUPERADMINS = emailList(process.env.NEXT_PUBLIC_SUPERADMIN_EMAILS)
+const SUPERADMINS = emailList(process.env.NEXT_PUBLIC_SUPERADMIN_EMAILS);
 
-const ADMINS = emailList(process.env.NEXT_PUBLIC_ADMIN_EMAILS)
+const ADMINS = emailList(process.env.NEXT_PUBLIC_ADMIN_EMAILS);
 
 function normalizeWireRole(value: unknown): Role | null {
-	const normalized = String(value ?? "")
-		.trim()
-		.toLowerCase()
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
 
-	if (normalized === "super_admin" || normalized === "superadmin") return "superadmin"
+  if (normalized === "super_admin" || normalized === "superadmin")
+    return "superadmin";
 
-	if (normalized === "admin") return "admin"
+  if (normalized === "admin") return "admin";
 
-	if (normalized === "agent") return "agent"
+  if (normalized === "agent") return "agent";
 
-	return null
+  return null;
 }
 
 export function toWireRole(role: Role): string {
-	return role === "superadmin" ? "super_admin" : role
+  return role === "superadmin" ? "super_admin" : role;
 }
 
 export function fromWireRole(value: unknown): Role {
-	return normalizeWireRole(value) ?? "agent"
+  return normalizeWireRole(value) ?? "agent";
 }
 
 export function resolveRole(email: string, claimRole?: unknown): Role {
-	const normalized = normalizeWireRole(claimRole)
+  const normalized = normalizeWireRole(claimRole);
 
-	if (normalized) return normalized
+  if (normalized) return normalized;
 
-	const lowerEmail = email.trim().toLowerCase()
+  const lowerEmail = email.trim().toLowerCase();
 
-	if (SUPERADMINS.includes(lowerEmail)) return "superadmin"
+  if (SUPERADMINS.includes(lowerEmail)) return "superadmin";
 
-	if (ADMINS.includes(lowerEmail)) return "admin"
+  if (ADMINS.includes(lowerEmail)) return "admin";
 
-	return "agent"
+  return "agent";
 }
 
 export const STORAGE_KEYS = {
-	token: "ema.token",
-	refreshToken: "ema.refresh-token",
-	agent: "ema.agent",
-	locale: "ema.locale",
-	theme: "ema.theme",
-	readNotifications: "ema.notifications.read",
-	soundEnabled: "ema.notifications.sound"
-} as const
+  token: "ema.token",
+  refreshToken: "ema.refresh-token",
+  agent: "ema.agent",
+  locale: "ema.locale",
+  theme: "ema.theme",
+  readNotifications: "ema.notifications.read",
+  soundEnabled: "ema.notifications.sound",
+  pushSubscription: "ema.push.subscription",
+} as const;

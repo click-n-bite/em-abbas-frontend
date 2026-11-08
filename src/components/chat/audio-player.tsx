@@ -1,190 +1,235 @@
-"use client"
+"use client";
 
-import { useEffect, useRef, useState } from "react"
-import { Pause, Play } from "lucide-react"
-import { formatTime } from "@/lib/format-time"
+import { useEffect, useRef, useState } from "react";
+import { Pause, Play } from "lucide-react";
+import { formatTime } from "@/lib/format-time";
+import { statusIcon, statusTint } from "@/lib/message-status";
+import type { Message } from "@/lib/features/conversations/types";
+import { useI18n } from "@/providers/i18n-provider";
 
 interface WhatsAppAudioPlayerProps {
-	src: string
-	sentTime?: string
+  src: string;
+  sentTime?: string;
+  status?: Message["status"];
+  outbound?: boolean;
 }
 
-const AUDIO_PLAY_EVENT = "ema:voice-note-play"
+const AUDIO_PLAY_EVENT = "ema:voice-note-play";
 
 function broadcastPlaying(id: string) {
-	window.dispatchEvent(new CustomEvent<string>(AUDIO_PLAY_EVENT, { detail: id }))
+  window.dispatchEvent(
+    new CustomEvent<string>(AUDIO_PLAY_EVENT, { detail: id }),
+  );
 }
 
-let nextPlayerId = 0
+let nextPlayerId = 0;
 
-export function WhatsAppAudioPlayer({ src, sentTime }: WhatsAppAudioPlayerProps) {
-	const audioRef = useRef<HTMLAudioElement | null>(null)
+export function WhatsAppAudioPlayer({
+  src,
+  sentTime,
+  status,
+  outbound,
+}: WhatsAppAudioPlayerProps) {
+  const { t } = useI18n();
 
-	const playerId = useRef(`voice-${++nextPlayerId}-${src}`).current
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-	const [isPlaying, setIsPlaying] = useState(false)
+  const playerId = useRef(`voice-${++nextPlayerId}-${src}`).current;
 
-	const isPlayingRef = useRef(false)
+  const [isPlaying, setIsPlaying] = useState(false);
 
-	isPlayingRef.current = isPlaying
+  const isPlayingRef = useRef(false);
 
-	const [currentTime, setCurrentTime] = useState(0)
+  isPlayingRef.current = isPlaying;
 
-	const [duration, setDuration] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0);
 
-	useEffect(() => {
-		const audio = audioRef.current
+  const [duration, setDuration] = useState(0);
 
-		if (!audio) return
+  useEffect(() => {
+    const audio = audioRef.current;
 
-		const handleLoadedMetadata = () => {
-			if (Number.isFinite(audio.duration)) setDuration(audio.duration)
-		}
+    if (!audio) return;
 
-		const handleDurationChange = () => {
-			if (Number.isFinite(audio.duration)) setDuration(audio.duration)
-		}
+    const handleLoadedMetadata = () => {
+      if (Number.isFinite(audio.duration)) setDuration(audio.duration);
+    };
 
-		const handleTimeUpdate = () => {
-			setCurrentTime(audio.currentTime)
-		}
+    const handleDurationChange = () => {
+      if (Number.isFinite(audio.duration)) setDuration(audio.duration);
+    };
 
-		const handleEnded = () => {
-			setIsPlaying(false)
-			setCurrentTime(0)
-		}
+    const handleTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+    };
 
-		const handlePause = () => {
-			setIsPlaying(false)
-		}
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
 
-		audio.addEventListener("loadedmetadata", handleLoadedMetadata)
-		audio.addEventListener("durationchange", handleDurationChange)
-		audio.addEventListener("timeupdate", handleTimeUpdate)
-		audio.addEventListener("ended", handleEnded)
-		audio.addEventListener("pause", handlePause)
+    const handlePause = () => {
+      setIsPlaying(false);
+    };
 
-		return () => {
-			audio.removeEventListener("loadedmetadata", handleLoadedMetadata)
-			audio.removeEventListener("durationchange", handleDurationChange)
-			audio.removeEventListener("timeupdate", handleTimeUpdate)
-			audio.removeEventListener("ended", handleEnded)
-			audio.removeEventListener("pause", handlePause)
-		}
-	}, [])
+    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("durationchange", handleDurationChange);
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+    audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("pause", handlePause);
 
-	useEffect(() => {
-		const onOtherPlayerStarted = (event: Event) => {
-			const startedId = (event as CustomEvent<string>).detail
+    return () => {
+      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("durationchange", handleDurationChange);
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
+      audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("pause", handlePause);
+    };
+  }, []);
 
-			if (startedId === playerId) return // that broadcast was us starting, ignore it
+  useEffect(() => {
+    const onOtherPlayerStarted = (event: Event) => {
+      const startedId = (event as CustomEvent<string>).detail;
 
-			if (isPlayingRef.current) {
-				audioRef.current?.pause()
-				setIsPlaying(false)
-			}
-		}
+      if (startedId === playerId) return; // that broadcast was us starting, ignore it
 
-		window.addEventListener(AUDIO_PLAY_EVENT, onOtherPlayerStarted)
+      if (isPlayingRef.current) {
+        audioRef.current?.pause();
+        setIsPlaying(false);
+      }
+    };
 
-		return () => window.removeEventListener(AUDIO_PLAY_EVENT, onOtherPlayerStarted)
-	}, [playerId])
+    window.addEventListener(AUDIO_PLAY_EVENT, onOtherPlayerStarted);
 
-	useEffect(() => {
-		return () => {
-			audioRef.current?.pause()
-		}
-	}, [])
+    return () =>
+      window.removeEventListener(AUDIO_PLAY_EVENT, onOtherPlayerStarted);
+  }, [playerId]);
 
-	const togglePlay = async () => {
-		const audio = audioRef.current
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+    };
+  }, []);
 
-		if (!audio) return
+  const togglePlay = async () => {
+    const audio = audioRef.current;
 
-		if (isPlaying) {
-			audio.pause()
-			setIsPlaying(false)
+    if (!audio) return;
 
-			return
-		}
+    if (isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
 
-		try {
-			broadcastPlaying(playerId)
-			await audio.play()
-			setIsPlaying(true)
-		} catch (error) {
-			console.error("Failed to play audio:", error)
-			setIsPlaying(false)
-		}
-	}
+      return;
+    }
 
-	const handleProgressClick = (event: React.MouseEvent<HTMLDivElement>) => {
-		const audio = audioRef.current
+    try {
+      broadcastPlaying(playerId);
+      await audio.play();
+      setIsPlaying(true);
+    } catch (error) {
+      console.error("Failed to play audio:", error);
+      setIsPlaying(false);
+    }
+  };
 
-		if (!audio || !duration) return
+  const handleProgressClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const audio = audioRef.current;
 
-		const rect = event.currentTarget.getBoundingClientRect()
+    if (!audio || !duration) return;
 
-		const clickPosition = event.clientX - rect.left
+    const rect = event.currentTarget.getBoundingClientRect();
 
-		const percentage = Math.min(1, Math.max(0, clickPosition / rect.width))
+    const clickPosition = event.clientX - rect.left;
 
-		audio.currentTime = percentage * duration
-		setCurrentTime(audio.currentTime)
-	}
+    const percentage = Math.min(1, Math.max(0, clickPosition / rect.width));
 
-	const progress = duration > 0 ? (currentTime / duration) * 100 : 0
+    audio.currentTime = percentage * duration;
+    setCurrentTime(audio.currentTime);
+  };
 
-	const displaySeconds = isPlaying || currentTime > 0 ? currentTime : duration
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-	const waveform = [
-		8, 14, 20, 11, 17, 24, 15, 9, 19, 25, 13, 18, 10, 22, 16, 8, 14, 21, 12, 18, 26, 15, 10, 17, 23, 13, 19, 9, 16, 24,
-		14, 20, 11, 17, 22
-	]
+  const displaySeconds = isPlaying || currentTime > 0 ? currentTime : duration;
 
-	return (
-		<div className='flex min-w-[230px] max-w-[280px] items-center gap-2 py-1'>
-			<audio ref={audioRef} src={src} preload='metadata' />
+  const waveform = [
+    8, 14, 20, 11, 17, 24, 15, 9, 19, 25, 13, 18, 10, 22, 16, 8, 14, 21, 12, 18,
+    26, 15, 10, 17, 23, 13, 19, 9, 16, 24, 14, 20, 11, 17, 22,
+  ];
 
-			<button
-				type='button'
-				onClick={togglePlay}
-				className='flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-200 text-ink-600 transition hover:bg-ink-300 dark:bg-ink-700 dark:text-ink-200 dark:hover:bg-ink-600'
-				aria-label={isPlaying ? "Pause audio" : "Play audio"}>
-				{isPlaying ? (
-					<Pause className='h-3.5 w-3.5 fill-current' />
-				) : (
-					<Play className='ml-0.5 h-3.5 w-3.5 fill-current' />
-				)}
-			</button>
+  return (
+    <div className="flex min-w-[230px] max-w-[280px] items-center gap-2 py-1">
+      <audio ref={audioRef} src={src} preload="metadata" />
 
-			<div className='min-w-0 flex-1'>
-				<div onClick={handleProgressClick} className='flex h-7 cursor-pointer items-center gap-[2px]'>
-					{waveform.map((height, index) => {
-						const percentage = ((index + 1) / waveform.length) * 100
+      <button
+        type="button"
+        onClick={togglePlay}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-200 text-ink-600 transition hover:bg-ink-300 dark:bg-ink-700 dark:text-ink-200 dark:hover:bg-ink-600"
+        aria-label={isPlaying ? "Pause audio" : "Play audio"}
+      >
+        {isPlaying ? (
+          <Pause className="h-3.5 w-3.5 fill-current" />
+        ) : (
+          <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
+        )}
+      </button>
 
-						const active = percentage <= progress
+      <div className="min-w-0 flex-1">
+        <div
+          onClick={handleProgressClick}
+          className="flex h-7 cursor-pointer items-center gap-[2px]"
+        >
+          {waveform.map((height, index) => {
+            const percentage = ((index + 1) / waveform.length) * 100;
 
-						return (
-							<span
-								key={index}
-								className={`w-[2px] shrink-0 rounded-full transition-colors ${
-									active ? "bg-ink-500 dark:bg-ink-300" : "bg-ink-200 dark:bg-ink-600"
-								}`}
-								style={{
-									height: `${height * 0.65}px`
-								}}
-							/>
-						)
-					})}
-				</div>
+            const active = percentage <= progress;
 
-				<div className='mt-0.5 flex items-center justify-between text-[10px] leading-none text-gray-300 dark:text-gray-300'>
-					<span dir='ltr'>{formatTime(displaySeconds)}</span>
+            return (
+              <span
+                key={index}
+                className={`w-[2px] shrink-0 rounded-full transition-colors ${
+                  active
+                    ? "bg-ink-500 dark:bg-ink-300"
+                    : "bg-ink-200 dark:bg-ink-600"
+                }`}
+                style={{
+                  height: `${height * 0.65}px`,
+                }}
+              />
+            );
+          })}
+        </div>
 
-					{sentTime ? <span dir='ltr'>{sentTime}</span> : null}
-				</div>
-			</div>
-		</div>
-	)
+        <div className="mt-0.5 flex items-center justify-between text-[10px] leading-none text-gray-300 dark:text-gray-300">
+          <span dir="ltr">{formatTime(displaySeconds)}</span>
+
+          {sentTime || (outbound && status) ? (
+            <span dir="ltr" className="flex items-center gap-1">
+              {sentTime}
+
+              {outbound && status
+                ? (() => {
+                    const StatusIcon = statusIcon(status);
+
+                    return (
+                      <>
+                        <StatusIcon
+                          className={`h-3 w-3 ${statusTint(status) ?? ""}`}
+                          aria-hidden="true"
+                        />
+                        <span className="sr-only">
+                          {t(
+                            `chat.status${status.charAt(0).toUpperCase()}${status.slice(1)}`,
+                          )}
+                        </span>
+                      </>
+                    );
+                  })()
+                : null}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
 }
