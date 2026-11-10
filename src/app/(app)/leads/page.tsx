@@ -1,6 +1,11 @@
 "use client";
 
 import {
+  contactIdentifier,
+  contactName,
+  leadNameWithCountry,
+} from "@/lib/channel-identity";
+import {
   Suspense,
   useCallback,
   useEffect,
@@ -10,11 +15,8 @@ import {
 } from "react";
 import {
   Bot,
-  ChevronLeft,
-  ChevronRight,
   Download,
-  Eye,
-  MessageSquare,
+  Pencil,
   Plus,
   RefreshCw,
   UserRound,
@@ -31,16 +33,19 @@ import { useToast } from "@/providers/toast-provider";
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
+import { PaginationFooter } from "@/components/ui/pagination-footer";
 import { Select } from "@/components/ui/select";
 import { SortableTh } from "@/components/ui/sortable-header";
+import { LeadTableActions } from "@/components/leads/lead-table-actions";
 import { LeadFormModal } from "@/components/leads/lead-form-modal";
-import { LeadPhoneCountry } from "@/components/ui/lead-phone-country";
+import { LeadPhoneCountry } from "@/components/leads/lead-phone-country";
 import { CloseLeadModal } from "@/components/leads/close-lead-modal";
+import { EditLeadNameModal } from "@/components/leads/edit-lead-name-modal";
 import { LeadExportModal } from "@/components/leads/lead-export-modal";
 import { cn, textDirOf } from "@/lib/utils";
 import { sameSort, toggleSort, type SortState } from "@/lib/sorting";
 import type { Lead, LeadSortField, LeadSource, LeadStatus } from "@/lib/types";
-import { FilterBar } from "@/components/ui/filter-bar";
+import { FilterBar, FilterTabs } from "@/components/ui/filter-bar";
 import { DateField } from "@/components/ui/date-field";
 
 type StatusFilter = LeadStatus | "all";
@@ -116,7 +121,11 @@ function readListState(
 
   return {
     status:
-      statusParam === "closed" || statusParam === "all" ? statusParam : "open",
+      statusParam === "closed" ||
+      statusParam === "in_progress" ||
+      statusParam === "all"
+        ? statusParam
+        : "open",
     source:
       sourceParam === "ai" || sourceParam === "agent" ? sourceParam : "all",
     serviceId:
@@ -207,26 +216,6 @@ function endOfDayIso(value: string): string | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 
-function pageNumbers(current: number, total: number): (number | "gap")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, index) => index);
-
-  const items: (number | "gap")[] = [0];
-
-  const start = Math.max(1, current - 1);
-
-  const end = Math.min(total - 2, current + 1);
-
-  if (start > 1) items.push("gap");
-
-  for (let i = start; i <= end; i++) items.push(i);
-
-  if (end < total - 2) items.push("gap");
-
-  items.push(total - 1);
-
-  return items;
-}
-
 function SourceBadge({ source }: { source: LeadSource }) {
   const { t } = useI18n();
 
@@ -253,10 +242,12 @@ function StatusBadge({ status }: { status: LeadStatus }) {
   return (
     <span
       className={cn(
-        "badge",
+        "badge whitespace-nowrap",
         status === "open"
           ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200"
-          : "bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200",
+          : status === "in_progress"
+            ? "bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200"
+            : "bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200",
       )}
     >
       {t(`leads.status.${status}`)}
@@ -289,6 +280,8 @@ function LeadsPageContent() {
   const [total, setTotal] = useState(0);
 
   const [openCount, setOpenCount] = useState<number | null>(null);
+
+  const [progressCount, setProgressCount] = useState<number | null>(null);
 
   const [closedCount, setClosedCount] = useState<number | null>(null);
 
@@ -340,6 +333,8 @@ function LeadsPageContent() {
   >([]);
 
   const [closingLead, setClosingLead] = useState<Lead | null>(null);
+
+  const [renamingLead, setRenamingLead] = useState<Lead | null>(null);
 
   const [busyLeadId, setBusyLeadId] = useState<number | null>(null);
 
@@ -393,7 +388,7 @@ function LeadsPageContent() {
     status !== "open" ||
     !sameSort(sort, DEFAULT_SORT);
 
-  // Count shown on the mobile "Filters" button (filter fields only).
+  // Count only the fields inside the filter panel.
   const moreFiltersCount = [
     source !== "all",
     serviceId !== "all",
@@ -525,13 +520,15 @@ function LeadsPageContent() {
     };
 
     try {
-      const [openRes, closedRes, allRes] = await Promise.all([
+      const [openRes, progressRes, closedRes, allRes] = await Promise.all([
         leadsApi.list({ ...shared, status: "open" }),
+        leadsApi.list({ ...shared, status: "in_progress" }),
         leadsApi.list({ ...shared, status: "closed" }),
         leadsApi.list(shared),
       ]);
 
       setOpenCount(openRes.total);
+      setProgressCount(progressRes.total);
       setClosedCount(closedRes.total);
       setAllCount(allRes.total);
     } catch {
@@ -581,7 +578,7 @@ function LeadsPageContent() {
             .filter((conversation) => !conversation.hidden)
             .map((conversation) => ({
               id: conversation.id,
-              label: conversation.customerName?.trim() || conversation.phone,
+              label: contactName(conversation),
             })),
         ),
       )
@@ -635,6 +632,36 @@ function LeadsPageContent() {
     }
   };
 
+  const renameLead = async (name: string) => {
+    if (!renamingLead) return;
+
+    try {
+      await leadsApi.update(renamingLead.id, { customerName: name });
+      push(t("leads.nameSaved"), "success");
+      void load(true);
+    } catch (error) {
+      push(errorDetail(error) ?? t(errorKey(error)), "error");
+      throw error;
+    }
+  };
+
+  const changeHandling = async (lead: Lead) => {
+    setBusyLeadId(lead.id);
+
+    try {
+      await leadsApi.update(lead.id, {
+        status: lead.status === "open" ? "in_progress" : "open",
+      });
+      push(t("leads.statusUpdated"), "success");
+      void load(true);
+      void loadCounts();
+    } catch (error) {
+      push(errorDetail(error) ?? t(errorKey(error)), "error");
+    } finally {
+      setBusyLeadId(null);
+    }
+  };
+
   const reopenLead = async (lead: Lead) => {
     setBusyLeadId(lead.id);
 
@@ -650,8 +677,6 @@ function LeadsPageContent() {
       setBusyLeadId(null);
     }
   };
-
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const selectedServiceName =
     serviceId === "all"
@@ -711,7 +736,7 @@ function LeadsPageContent() {
         </div>
       }
     >
-      <section className="card flex h-[calc(100dvh-8.5rem)] min-h-[28rem] flex-col overflow-hidden lg:h-[calc(100dvh-9rem)] lg:min-h-[24rem]">
+      <section className="card flex h-[calc(100dvh-8.5rem)] min-h-[28rem] flex-col overflow-hidden lg:h-full lg:min-h-[24rem]">
         <FilterBar
           search={search}
           onSearchChange={setSearch}
@@ -723,53 +748,36 @@ function LeadsPageContent() {
           clearLabel={t("leads.clearFilters")}
           onClear={clearAllFilters}
           tabs={
-            <div
-              role="tablist"
-              aria-label={t("leads.title")}
-              className="flex w-full items-center gap-1 rounded-xl bg-ink-50 p-1 dark:bg-ink-900 lg:w-auto"
-            >
-              {(["open", "closed", "all"] as StatusFilter[]).map((value) => {
-                const count =
-                  value === "open"
-                    ? openCount
-                    : value === "closed"
-                      ? closedCount
-                      : allCount;
-
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    role="tab"
-                    aria-selected={status === value}
-                    onClick={() => {
-                      setStatus(value);
-                      setPage(0);
-                    }}
-                    className={cn(
-                      "flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-medium transition lg:min-h-0 lg:flex-none lg:px-3 lg:py-1.5 lg:text-xs",
-                      status === value
-                        ? "bg-white text-brand-700 shadow-sm dark:bg-ink-700 dark:text-brand-100"
-                        : "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100",
-                    )}
-                  >
-                    {t(`leads.filters.${value}`)}
-                    {count !== null ? (
-                      <span
-                        className={cn(
-                          "rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
-                          status === value
-                            ? "bg-brand-600 text-white"
-                            : "bg-ink-200 dark:bg-ink-700",
-                        )}
-                      >
-                        {count}
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
+            <FilterTabs<StatusFilter>
+              label={t("leads.title")}
+              value={status}
+              options={[
+                {
+                  value: "open",
+                  label: t("leads.filters.open"),
+                  count: openCount,
+                },
+                {
+                  value: "in_progress",
+                  label: t("leads.filters.in_progress"),
+                  count: progressCount,
+                },
+                {
+                  value: "closed",
+                  label: t("leads.filters.closed"),
+                  count: closedCount,
+                },
+                {
+                  value: "all",
+                  label: t("leads.filters.all"),
+                  count: allCount,
+                },
+              ]}
+              onChange={(value) => {
+                setStatus(value);
+                setPage(0);
+              }}
+            />
           }
         >
           <Select
@@ -779,7 +787,7 @@ function LeadsPageContent() {
               setPage(0);
             }}
             className="h-11 min-w-0 ps-2 pe-8 lg:h-10 lg:ps-3 lg:pe-10"
-            wrapperClassName="min-w-0 lg:w-auto lg:min-w-[10rem] lg:flex-1"
+            wrapperClassName="min-w-0 lg:min-w-[9rem] lg:flex-1"
             mobileLabel={t(`leads.source.${source}`)}
             aria-label={t("leads.colSource")}
           >
@@ -799,7 +807,7 @@ function LeadsPageContent() {
               setPage(0);
             }}
             className="h-11 min-w-0 ps-2 pe-8 lg:h-10 lg:ps-3 lg:pe-10"
-            wrapperClassName="min-w-0 lg:w-auto lg:min-w-[10rem] lg:flex-1"
+            wrapperClassName="min-w-0 lg:min-w-[11rem] lg:flex-[1.5]"
             mobileLabel={selectedServiceName}
             aria-label={t("leads.service")}
           >
@@ -869,7 +877,7 @@ function LeadsPageContent() {
                 className="space-y-3 bg-ink-50/50 p-3 dark:bg-ink-900/20 lg:hidden"
               >
                 {leads.map((lead) => {
-                  const displayName = lead.customerName?.trim() || lead.phone;
+                  const displayName = contactName(lead);
 
                   return (
                     <li
@@ -896,8 +904,20 @@ function LeadsPageContent() {
                                     : "ltr"
                                 }
                               >
-                                {displayName}
+                                {leadNameWithCountry(lead)}
                               </bdi>
+                              <button
+                                type="button"
+                                onClick={() => setRenamingLead(lead)}
+                                className="btn-ghost ms-1 inline-flex h-6 w-6 shrink-0 items-center justify-center p-0 align-middle"
+                                aria-label={t("leads.editName")}
+                                title={t("leads.editName")}
+                              >
+                                <Pencil
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden="true"
+                                />
+                              </button>
                             </h2>
                             <span className="shrink-0">
                               <StatusBadge status={lead.status} />
@@ -905,7 +925,7 @@ function LeadsPageContent() {
                           </div>
                           {lead.customerName?.trim() ? (
                             <p className="mt-0.5 text-xs text-ink-500 dark:text-ink-400">
-                              <bdi dir="ltr">{lead.phone}</bdi>
+                              <bdi dir="ltr">{contactIdentifier(lead)}</bdi>
                             </p>
                           ) : null}
                           <LeadPhoneCountry phone={lead.phone} />
@@ -935,6 +955,21 @@ function LeadsPageContent() {
                       </div>
 
                       <div className="mt-2 grid grid-cols-2 gap-1.5 border-t border-ink-100 pt-2 dark:border-ink-700">
+                        {lead.status !== "closed" && (
+                          <button
+                            type="button"
+                            className="btn-secondary col-span-2 px-2 py-1.5 text-xs"
+                            disabled={busyLeadId === lead.id}
+                            onClick={() => void changeHandling(lead)}
+                          >
+                            {t(
+                              lead.status === "open"
+                                ? "leads.startProgress"
+                                : "leads.returnToOpen",
+                            )}
+                          </button>
+                        )}
+
                         <button
                           type="button"
                           className="btn-primary min-h-9 min-w-0 px-2 py-1.5 text-xs"
@@ -954,13 +989,13 @@ function LeadsPageContent() {
                           className="btn-ghost col-span-2 min-h-8 justify-self-end px-2 py-1 text-xs"
                           disabled={busyLeadId === lead.id}
                           onClick={() =>
-                            lead.status === "open"
+                            lead.status !== "closed"
                               ? setClosingLead(lead)
                               : void reopenLead(lead)
                           }
                         >
                           {busyLeadId === lead.id ? <Spinner /> : null}
-                          {lead.status === "open"
+                          {lead.status !== "closed"
                             ? t("leads.confirmClose")
                             : t("leads.reopen")}
                         </button>
@@ -1029,14 +1064,13 @@ function LeadsPageContent() {
                         </th>
                       )}
                       <th className="px-5 py-2.5 text-center">
-                        {t("leads.viewChat")}
+                        {t("leads.actions")}
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-ink-100 dark:divide-ink-700/70">
                     {leads.map((lead) => {
-                      const displayName =
-                        lead.customerName?.trim() || lead.phone;
+                      const displayName = contactName(lead);
 
                       const lastActivityAt =
                         lead.status === "closed" && lead.closedAt
@@ -1052,7 +1086,7 @@ function LeadsPageContent() {
                       return (
                         <tr
                           key={lead.id}
-                          className="align-top transition hover:bg-ink-50/60 dark:hover:bg-ink-800/30"
+                          className="align-middle transition hover:bg-ink-50/60 dark:hover:bg-ink-800/30"
                         >
                           <td className="px-5 py-3">
                             <div className="flex items-center gap-2.5">
@@ -1065,17 +1099,31 @@ function LeadsPageContent() {
                                 {initialsOf(displayName)}
                               </div>
                               <div className="min-w-0">
-                                <p
-                                  dir={textDirOf(displayName)}
-                                  className="truncate text-sm font-semibold text-ink-900 dark:text-ink-50"
-                                >
-                                  {displayName}
-                                </p>
+                                <div className="flex items-center gap-1">
+                                  <p
+                                    dir={textDirOf(displayName)}
+                                    className="truncate text-sm font-semibold text-ink-900 dark:text-ink-50"
+                                  >
+                                    {leadNameWithCountry(lead)}
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => setRenamingLead(lead)}
+                                    className="btn-ghost inline-flex h-6 w-6 shrink-0 items-center justify-center p-0"
+                                    aria-label={t("leads.editName")}
+                                    title={t("leads.editName")}
+                                  >
+                                    <Pencil
+                                      className="h-3.5 w-3.5"
+                                      aria-hidden="true"
+                                    />
+                                  </button>
+                                </div>
                                 <p
                                   dir="ltr"
                                   className="text-xs text-ink-500 dark:text-ink-400"
                                 >
-                                  {lead.phone}
+                                  {contactIdentifier(lead)}
                                 </p>
                                 <LeadPhoneCountry phone={lead.phone} />
                               </div>
@@ -1100,69 +1148,59 @@ function LeadsPageContent() {
                           </td>
 
                           <td className="whitespace-nowrap px-3 py-3 text-xs text-ink-500 dark:text-ink-400">
-                            {formatDateTime(lead.createdAt)}
+                            <time
+                              dateTime={lead.createdAt}
+                              title={formatDateTime(lead.createdAt)}
+                            >
+                              <span className="block text-ink-700 dark:text-ink-200">
+                                {new Intl.DateTimeFormat(
+                                  locale === "ar" ? "ar" : "en-GB",
+                                  { dateStyle: "medium" },
+                                ).format(new Date(lead.createdAt))}
+                              </span>
+                              <span className="mt-0.5 block text-[11px]">
+                                {new Intl.DateTimeFormat(
+                                  locale === "ar" ? "ar" : "en-GB",
+                                  { timeStyle: "short" },
+                                ).format(new Date(lead.createdAt))}
+                              </span>
+                            </time>
                           </td>
 
                           <td className="whitespace-nowrap px-3 py-3 text-xs text-ink-500 dark:text-ink-400">
-                            {formatDateTime(lastActivityAt)}
+                            <time
+                              dateTime={lastActivityAt}
+                              title={formatDateTime(lastActivityAt)}
+                            >
+                              <span className="block text-ink-700 dark:text-ink-200">
+                                {new Intl.DateTimeFormat(
+                                  locale === "ar" ? "ar" : "en-GB",
+                                  { dateStyle: "medium" },
+                                ).format(new Date(lastActivityAt))}
+                              </span>
+                              <span className="mt-0.5 block text-[11px]">
+                                {new Intl.DateTimeFormat(
+                                  locale === "ar" ? "ar" : "en-GB",
+                                  { timeStyle: "short" },
+                                ).format(new Date(lastActivityAt))}
+                              </span>
+                            </time>
                           </td>
 
                           <td className="max-w-[8rem] truncate px-3 py-3 text-xs text-ink-500 dark:text-ink-400">
                             {attributedTo}
                           </td>
 
-                          <td className="px-5 py-3">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
-                                className="btn-secondary px-2.5 py-1.5 text-xs"
-                                onClick={() => openLead(lead)}
-                                aria-label={t("leads.viewDetails")}
-                                title={t("leads.viewDetails")}
-                              >
-                                <Eye
-                                  className="h-3.5 w-3.5"
-                                  aria-hidden="true"
-                                />
-                              </button>
-
-                              <button
-                                type="button"
-                                className="btn-primary px-2.5 py-1.5 text-xs"
-                                onClick={() => openChat(lead)}
-                                aria-label={t("leads.viewChat")}
-                                title={t("leads.viewChat")}
-                              >
-                                <MessageSquare
-                                  className="h-3.5 w-3.5"
-                                  aria-hidden="true"
-                                />
-                              </button>
-
-                              {lead.status === "open" && (
-                                <button
-                                  type="button"
-                                  className="btn-secondary px-2.5 py-1.5 text-xs"
-                                  disabled={busyLeadId === lead.id}
-                                  onClick={() => setClosingLead(lead)}
-                                >
-                                  {busyLeadId === lead.id ? <Spinner /> : null}
-                                  {t("leads.close")}
-                                </button>
-                              )}
-
-                              {lead.status === "closed" && (
-                                <button
-                                  type="button"
-                                  className="btn-secondary px-2.5 py-1.5 text-xs"
-                                  disabled={busyLeadId === lead.id}
-                                  onClick={() => void reopenLead(lead)}
-                                >
-                                  {busyLeadId === lead.id ? <Spinner /> : null}
-                                  {t("leads.reopen")}
-                                </button>
-                              )}
-                            </div>
+                          <td className="w-px whitespace-nowrap px-4 py-3">
+                            <LeadTableActions
+                              status={lead.status}
+                              busy={busyLeadId === lead.id}
+                              onDetails={() => openLead(lead)}
+                              onChat={() => openChat(lead)}
+                              onChangeHandling={() => void changeHandling(lead)}
+                              onClose={() => setClosingLead(lead)}
+                              onReopen={() => void reopenLead(lead)}
+                            />
                           </td>
                         </tr>
                       );
@@ -1175,106 +1213,18 @@ function LeadsPageContent() {
         </div>
 
         {total > 0 ? (
-          <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-ink-200 px-3 py-2.5 dark:border-ink-700 sm:px-5 sm:py-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="hidden whitespace-nowrap text-xs text-ink-500 dark:text-ink-400 lg:inline">
-                  {t("leads.rowsPerPage")}
-                </span>
-                <Select
-                  value={String(pageSize)}
-                  onChange={(event) => {
-                    setPageSize(Number(event.target.value));
-                    setPage(0);
-                  }}
-                  className="h-9 min-w-0 ps-2 pe-8"
-                  wrapperClassName="w-auto flex-none"
-                  mobileLabel={String(pageSize)}
-                  aria-label={t("leads.rowsPerPage")}
-                >
-                  {PAGE_SIZE_OPTIONS.map((size) => (
-                    <option key={size} value={size}>
-                      {size}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            </div>
-
-            {totalPages > 1 ? (
-              <nav
-                aria-label={t("leads.title")}
-                className="flex shrink-0 items-center gap-1"
-              >
-                <button
-                  type="button"
-                  className="btn-ghost h-9 w-9 p-0 sm:h-8 sm:w-8"
-                  disabled={page === 0}
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  aria-label={t("common.previous")}
-                >
-                  <ChevronLeft
-                    className="h-4 w-4 rtl:rotate-180"
-                    aria-hidden="true"
-                  />
-                </button>
-
-                {/* Mobile: compact "2 / 6" indicator */}
-                <span
-                  dir="ltr"
-                  className="min-w-12 text-center text-xs font-medium tabular-nums text-ink-600 dark:text-ink-300 sm:hidden"
-                  aria-live="polite"
-                >
-                  {page + 1} / {totalPages}
-                </span>
-
-                {/* sm and up: numbered page buttons */}
-                <div className="hidden items-center gap-1 sm:flex">
-                  {pageNumbers(page, totalPages).map((item, index) =>
-                    item === "gap" ? (
-                      <span
-                        key={`gap-${index}`}
-                        className="px-1 text-xs text-ink-400"
-                        aria-hidden="true"
-                      >
-                        …
-                      </span>
-                    ) : (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => setPage(item)}
-                        aria-current={item === page ? "page" : undefined}
-                        className={cn(
-                          "h-8 min-w-8 rounded-lg px-2 text-xs font-medium tabular-nums transition",
-                          item === page
-                            ? "bg-brand-600 text-white shadow-sm"
-                            : "text-ink-600 hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-700",
-                        )}
-                      >
-                        {item + 1}
-                      </button>
-                    ),
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  className="btn-ghost h-9 w-9 p-0 sm:h-8 sm:w-8"
-                  disabled={page + 1 >= totalPages}
-                  onClick={() =>
-                    setPage((p) => Math.min(totalPages - 1, p + 1))
-                  }
-                  aria-label={t("common.next")}
-                >
-                  <ChevronRight
-                    className="h-4 w-4 rtl:rotate-180"
-                    aria-hidden="true"
-                  />
-                </button>
-              </nav>
-            ) : null}
-          </footer>
+          <PaginationFooter
+            page={page}
+            pageSize={pageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            total={total}
+            ariaLabel={t("leads.title")}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(0);
+            }}
+          />
         ) : null}
       </section>
 
@@ -1293,6 +1243,12 @@ function LeadsPageContent() {
         lead={closingLead}
         onClose={() => setClosingLead(null)}
         onSubmit={closeLead}
+      />
+
+      <EditLeadNameModal
+        lead={renamingLead}
+        onClose={() => setRenamingLead(null)}
+        onSubmit={renameLead}
       />
     </AppShell>
   );
