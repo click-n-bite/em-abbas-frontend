@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Logs,
   MessageSquare,
+  PhoneCall,
   PhoneOff,
   Settings,
   Smartphone,
@@ -26,6 +27,7 @@ export const navItems: NavItem[] = [
     labelKey: "nav.conversations",
     icon: MessageSquare,
   },
+  { href: "/calls", labelKey: "nav.calls", icon: PhoneCall },
   { href: "/notifications", labelKey: "nav.notifications", icon: Bell },
   {
     href: "/users",
@@ -50,7 +52,7 @@ export const navItems: NavItem[] = [
     href: "/blocked-numbers",
     labelKey: "nav.blockedNumbers",
     icon: PhoneOff,
-    roles: ["superadmin", "admin", "agent"],
+    roles: ["superadmin", "admin"],
   },
   {
     href: "/notify-phones",
