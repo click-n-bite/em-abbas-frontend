@@ -1,0 +1,189 @@
+import {
+  getCountries,
+  getCountryCallingCode,
+  parsePhoneNumberFromString,
+  AsYouType,
+  type CountryCode,
+} from "libphonenumber-js";
+import type { Locale } from "./types";
+
+export interface Country {
+  code: CountryCode;
+  callingCode: string;
+  name: string;
+  flag: string;
+}
+
+export function flagOf(code: string): string {
+  if (!/^[A-Za-z]{2}$/.test(code)) return "\u{1F3F3}";
+
+  return code
+    .toUpperCase()
+    .split("")
+    .map((char) => String.fromCodePoint(127_397 + char.charCodeAt(0)))
+    .join("");
+}
+
+function displayNames(locale: Locale): Intl.DisplayNames | null {
+  try {
+    return new Intl.DisplayNames([locale === "ar" ? "ar" : "en"], {
+      type: "region",
+    });
+  } catch {
+    return null;
+  }
+}
+
+const cache = new Map<Locale, Country[]>();
+
+export function countryList(locale: Locale): Country[] {
+  const cached = cache.get(locale);
+
+  if (cached) return cached;
+
+  const names = displayNames(locale);
+
+  const collator = new Intl.Collator(locale === "ar" ? "ar" : "en");
+
+  const list: Country[] = getCountries().map((code) => ({
+    code,
+    callingCode: getCountryCallingCode(code),
+    name: names?.of(code) ?? code,
+    flag: flagOf(code),
+  }));
+
+  list.sort((a, b) => collator.compare(a.name, b.name));
+  cache.set(locale, list);
+
+  return list;
+}
+
+export function countryName(code: string, locale: Locale): string {
+  return displayNames(locale)?.of(code.toUpperCase()) ?? code.toUpperCase();
+}
+
+export function callingCodeOf(code: string): string {
+  try {
+    return getCountryCallingCode(code as CountryCode);
+  } catch {
+    return "";
+  }
+}
+
+let callingCodeIndex: Map<string, CountryCode> | null = null;
+
+export function countryForCallingCode(callingCode: string): CountryCode | null {
+  const digits = callingCode.replace(/[^\d]/g, "");
+
+  if (!digits) return null;
+
+  if (!callingCodeIndex) {
+    callingCodeIndex = new Map();
+    for (const code of getCountries()) {
+      const dial = getCountryCallingCode(code);
+
+      if (!callingCodeIndex.has(dial)) callingCodeIndex.set(dial, code);
+    }
+  }
+
+  return callingCodeIndex.get(digits) ?? null;
+}
+
+export function formatAsYouType(value: string, country: CountryCode): string {
+  return new AsYouType(country).input(value);
+}
+
+export interface ParsedPhone {
+  valid: boolean;
+  e164: string | null;
+  country: CountryCode | null;
+  callingCode: string | null;
+  national: string;
+}
+
+export function parsePhone(value: string, country?: CountryCode): ParsedPhone {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return {
+      valid: false,
+      e164: null,
+      country: null,
+      callingCode: null,
+      national: "",
+    };
+  }
+
+  const parsed = parsePhoneNumberFromString(
+    trimmed,
+    trimmed.startsWith("+") ? undefined : country,
+  );
+
+  if (!parsed) {
+    return {
+      valid: false,
+      e164: null,
+      country: country ?? null,
+      callingCode: null,
+      national: trimmed.replace(/^\+/, ""),
+    };
+  }
+
+  return {
+    valid: parsed.isValid(),
+    e164: parsed.number,
+    country: (parsed.country as CountryCode | undefined) ?? country ?? null,
+    callingCode: parsed.countryCallingCode
+      ? String(parsed.countryCallingCode)
+      : null,
+    national: parsed.nationalNumber ? String(parsed.nationalNumber) : "",
+  };
+}
+
+/** Infer from the full international number, including shared calling codes. */
+export function phoneCountryOf(value?: string | null): CountryCode | null {
+  const raw = value?.trim() ?? "";
+
+  if (!raw || !/^\+?[\d\s().-]+$/.test(raw)) return null;
+
+  // Stored WhatsApp numbers commonly omit '+'. A leading single zero is a
+  // national number and cannot identify a country without additional context.
+  if (raw.startsWith("0") && !raw.startsWith("00")) return null;
+
+  const international = raw.startsWith("00")
+    ? `+${raw.slice(2)}`
+    : raw.startsWith("+")
+      ? raw
+      : `+${raw}`;
+
+  const parsed = parsePhone(international);
+
+  return parsed.valid ? parsed.country : null;
+}
+
+export function evaluateNumber(
+  value: string,
+  blockedCodes: string[],
+  blockedCallingCodes: string[],
+  fallbackCountry?: CountryCode,
+): { status: "allowed" | "blocked" | "invalid"; country: CountryCode | null } {
+  const parsed = parsePhone(value, fallbackCountry);
+
+  if (!parsed.e164) return { status: "invalid", country: null };
+
+  const upper = blockedCodes.map((code) => code.toUpperCase());
+
+  if (parsed.country && upper.includes(parsed.country)) {
+    return { status: "blocked", country: parsed.country };
+  }
+
+  if (parsed.callingCode && blockedCallingCodes.includes(parsed.callingCode)) {
+    return { status: "blocked", country: parsed.country };
+  }
+
+  if (!parsed.valid) return { status: "invalid", country: parsed.country };
+
+  return { status: "allowed", country: parsed.country };
+}
+
+export type { CountryCode };

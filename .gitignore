@@ -1,0 +1,9 @@
+node_modules
+.next
+out
+.env
+.env.local
+.env.test
+.env.production
+edge/.env
+*.log
