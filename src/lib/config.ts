@@ -1,6 +1,6 @@
 import type { Locale, Role } from "./types";
 
-const RAW_API = process.env.NEXT_PUBLIC_API_URL ?? "https://ema-api.duckdns.org";
+const RAW_API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.emabbass.com";
 
 export const API_URL = RAW_API.replace(/\/+$/, "");
 
@@ -73,6 +73,7 @@ export const STORAGE_KEYS = {
   agent: "ema.agent",
   locale: "ema.locale",
   theme: "ema.theme",
+  sidebarCollapsed: "ema.sidebar.collapsed",
   readNotifications: "ema.notifications.read",
   soundEnabled: "ema.notifications.sound",
   pushSubscription: "ema.push.subscription",
