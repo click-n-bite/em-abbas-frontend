@@ -1,7 +1,7 @@
 # EMA Web Portal — GitLab CI/CD
 
 Pipelines typecheck, push an immutable image, then SSH and roll `ema-portal`.
-The browser calls **https://api.emabbass.com** (set on the server). CI never
+The browser calls **https://ema-api.duckdns.org** (set on the server). CI never
 uploads `.env`.
 
 Same buttons as EMA: **deploy-test** and **deploy-production**.
@@ -29,7 +29,7 @@ mkdir -p /home/deploy/portal
 cd /home/deploy/portal
 # production
 cat > .env.production <<'EOF'
-EMA_PUBLIC_API_URL=https://api.emabbass.com
+EMA_PUBLIC_API_URL=https://ema-api.duckdns.org
 NEXT_PUBLIC_DEFAULT_LOCALE=en
 EOF
 chmod 600 .env.production

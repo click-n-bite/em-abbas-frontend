@@ -1,6 +1,7 @@
 import type { Locale, Role } from "./types";
 
-const RAW_API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.emabbass.com";
+const RAW_API =
+  process.env.NEXT_PUBLIC_API_URL ?? "https://ema-api.duckdns.org";
 
 export const API_URL = RAW_API.replace(/\/+$/, "");
 
