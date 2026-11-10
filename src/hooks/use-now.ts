@@ -2,19 +2,29 @@
 
 import { useEffect, useState } from "react";
 
-/** Current timestamp, re-rendering every `intervalMs` while `enabled`. */
-export function useNow(enabled: boolean, intervalMs = 1000): number {
+/**
+ * Current time, refreshed on an interval and whenever the tab becomes visible.
+ * Relative labels ("18 min ago") read this so they stay current without a reload.
+ */
+export function useNow(intervalMs = 30_000): number {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!enabled) return;
+    if (intervalMs <= 0) return;
 
-    setNow(Date.now());
+    const tick = () => {
+      if (document.visibilityState === "visible") setNow(Date.now());
+    };
 
-    const id = window.setInterval(() => setNow(Date.now()), intervalMs);
+    const id = window.setInterval(tick, intervalMs);
 
-    return () => window.clearInterval(id);
-  }, [enabled, intervalMs]);
+    document.addEventListener("visibilitychange", tick);
+
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [intervalMs]);
 
   return now;
 }
