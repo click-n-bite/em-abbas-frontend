@@ -3,27 +3,33 @@
 import { useEffect, useState } from "react";
 import {
   Bell,
-  Check,
   LogOut,
+  Monitor,
   Moon,
+  Paintbrush,
   PlayCircle,
   Sun,
+  User,
   Volume2,
-  VolumeX,
 } from "lucide-react";
 import { useAuth } from "@/providers/auth-provider";
 import { useI18n } from "@/providers/i18n-provider";
-import { useTheme } from "@/providers/theme-provider";
+import { useTheme, type ThemePreference } from "@/providers/theme-provider";
 import { AppShell } from "@/components/layout/app-shell";
 import { Avatar } from "@/components/ui/avatar";
 import { RoleBadge } from "@/components/ui/badges";
-import { LanguageSwitcher } from "@/components/language-switcher";
-import { PushSettingsCard } from "@/components/settings/push-settings-card";
+import { PushSettingsRow } from "@/components/settings/push-settings-card";
+import {
+  SettingsSection,
+  SettingsSegmented,
+  SettingsTile,
+} from "@/components/settings/settings-ui";
 import { cn } from "@/lib/utils";
 import { isSoundEnabled, playMessageSound, setSoundEnabled } from "@/lib/sound";
+import type { Locale } from "@/lib/types";
 
 export default function SettingsPage() {
-  const { t } = useI18n();
+  const { t, locale, setLocale } = useI18n();
 
   const { agent, role, signOut } = useAuth();
 
@@ -37,6 +43,12 @@ export default function SettingsPage() {
     setSoundOn(isSoundEnabled());
   }, []);
 
+  const testSound = () => {
+    playMessageSound();
+    setPinging(true);
+    window.setTimeout(() => setPinging(false), 700);
+  };
+
   const toggleSound = () => {
     const next = !soundOn;
 
@@ -46,225 +58,159 @@ export default function SettingsPage() {
     if (next) testSound();
   };
 
-  const testSound = () => {
-    playMessageSound();
-    setPinging(true);
-    window.setTimeout(() => setPinging(false), 700);
-  };
-
-  const themes: Array<{
-    value: "light" | "dark";
-    label: string;
-    icon: typeof Sun;
-  }> = [
-    { value: "light", label: t("settings.light"), icon: Sun },
-    { value: "dark", label: t("settings.dark"), icon: Moon },
-  ];
+  const iconClass = "h-4 w-4";
 
   return (
     <AppShell title={t("settings.title")} subtitle={t("settings.subtitle")}>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="card p-5">
-          <h2 className="text-sm font-semibold text-ink-900 dark:text-ink-50">
-            {t("settings.session")}
-          </h2>
-          <div className="mt-4 flex items-center gap-3">
-            <Avatar name={agent?.name ?? "?"} seed={agent?.email ?? ""} />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-ink-900 dark:text-ink-50">
-                {agent?.name ?? t("common.unknown")}
-              </p>
-              <p
-                dir="ltr"
-                className="truncate text-xs text-ink-500 dark:text-ink-400"
-              >
-                {agent?.email ?? ""}
-              </p>
-            </div>
-          </div>
-
-          <dl className="mt-4 flex items-center justify-between rounded-xl border border-ink-200 px-3 py-2.5 dark:border-ink-700">
-            <dt className="text-xs uppercase tracking-wide text-ink-500 dark:text-ink-400">
-              {t("settings.role")}
-            </dt>
-            <dd>
-              <RoleBadge role={role} />
-            </dd>
-          </dl>
-
-          <button
-            type="button"
-            onClick={signOut}
-            className="btn-secondary mt-4 w-full justify-center"
+      <div className="flex flex-col gap-3">
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <SettingsSection
+            icon={<User className="h-5 w-5" aria-hidden="true" />}
+            title={t("settings.account")}
+            description={t("settings.accountHelp")}
           >
-            <LogOut className="h-4 w-4" aria-hidden="true" />
-            {t("common.signOut")}
-          </button>
-        </section>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <Avatar name={agent?.name ?? "?"} seed={agent?.email ?? ""} />
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink-900 dark:text-ink-50">
+                    <span className="truncate">
+                      {agent?.name ?? t("common.unknown")}
+                    </span>
+                    <RoleBadge role={role} />
+                  </p>
+                  <p
+                    dir="ltr"
+                    className="truncate text-sm text-ink-500 dark:text-ink-400"
+                  >
+                    {agent?.email ?? ""}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={signOut}
+                className="btn-secondary h-10 shrink-0 self-start px-4 py-0 text-sm sm:self-auto"
+              >
+                <LogOut className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                {t("common.signOut")}
+              </button>
+            </div>
+          </SettingsSection>
 
-        <section className="card p-5">
-          <h2 className="text-sm font-semibold text-ink-900 dark:text-ink-50">
-            {t("settings.appearance")}
-          </h2>
+          <SettingsSection
+            icon={<Paintbrush className="h-5 w-5" aria-hidden="true" />}
+            title={t("settings.appearance")}
+            description={t("settings.appearanceHelp")}
+          >
+            <div className="grid gap-5 md:grid-cols-2 md:gap-0">
+              <div className="md:pe-6">
+                <p className="text-sm font-semibold text-ink-900 dark:text-ink-50">
+                  {t("common.theme")}
+                </p>
+                <p className="mb-3 text-xs text-ink-500 dark:text-ink-400">
+                  {t("settings.themeHelp")}
+                </p>
+                <SettingsSegmented<ThemePreference>
+                  label={t("common.theme")}
+                  value={theme}
+                  onChange={setTheme}
+                  options={[
+                    {
+                      value: "light",
+                      label: t("settings.light"),
+                      icon: <Sun className={iconClass} aria-hidden="true" />,
+                    },
+                    {
+                      value: "dark",
+                      label: t("settings.dark"),
+                      icon: <Moon className={iconClass} aria-hidden="true" />,
+                    },
+                    {
+                      value: "system",
+                      label: t("settings.system"),
+                      icon: (
+                        <Monitor className={iconClass} aria-hidden="true" />
+                      ),
+                    },
+                  ]}
+                />
+              </div>
 
-          <div className="mt-4 space-y-4">
-            <div>
-              <p className="label">{t("common.theme")}</p>
-              <div className="grid grid-cols-2 gap-2">
-                {themes.map((option) => {
-                  const Icon = option.icon;
-
-                  const active = theme === option.value;
-
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setTheme(option.value)}
-                      aria-pressed={active}
-                      className={cn(
-                        "flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition",
-                        active
-                          ? "dark:bg-brand-950 border-brand-500 bg-brand-50 text-brand-700 dark:text-brand-200"
-                          : "border-ink-200 text-ink-600 hover:bg-ink-50 dark:border-ink-600 dark:text-ink-300 dark:hover:bg-ink-700",
-                      )}
-                    >
-                      <Icon className="h-4 w-4" aria-hidden="true" />
-                      {option.label}
-                    </button>
-                  );
-                })}
+              <div className="md:border-s md:border-ink-200 md:ps-6 md:dark:border-ink-700">
+                <p className="text-sm font-semibold text-ink-900 dark:text-ink-50">
+                  {t("common.language")}
+                </p>
+                <p className="mb-3 text-xs text-ink-500 dark:text-ink-400">
+                  {t("settings.languageHelp")}
+                </p>
+                <SettingsSegmented<Locale>
+                  label={t("common.language")}
+                  value={locale}
+                  onChange={setLocale}
+                  options={[
+                    { value: "en", label: "English" },
+                    { value: "ar", label: "العربية" },
+                  ]}
+                />
               </div>
             </div>
+          </SettingsSection>
+        </div>
 
-            <div>
-              <p className="label">{t("common.language")}</p>
-              <LanguageSwitcher />
-              <p className="mt-2 text-xs text-ink-500 dark:text-ink-400">
-                {t("settings.languageHelp")}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="card overflow-hidden p-5">
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-sm">
-              <Bell className="h-4 w-4" aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-ink-900 dark:text-ink-50">
-                {t("settings.notifications")}
-              </h2>
-              <p className="text-xs text-ink-500 dark:text-ink-400">
-                {t("settings.messageSoundHelp")}
-              </p>
-            </div>
-          </div>
-
-          <div
-            className={cn(
-              "mt-4 flex items-center gap-3 rounded-2xl border p-3.5 transition-colors",
-              soundOn
-                ? "dark:bg-brand-950/40 border-brand-200 bg-brand-50/60 dark:border-brand-900"
-                : "border-ink-200 dark:border-ink-700",
-            )}
-          >
-            <span
-              className={cn(
-                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
-                soundOn
-                  ? "bg-white text-brand-600 shadow-sm dark:bg-ink-800"
-                  : "bg-ink-100 text-ink-400 dark:bg-ink-700",
-              )}
+        <SettingsSection
+          icon={<Bell className="h-5 w-5" aria-hidden="true" />}
+          title={t("settings.notifications")}
+          description={t("settings.notificationsHelp")}
+        >
+          <div className="flex flex-col gap-3">
+            <SettingsTile
+              icon={<Volume2 className="h-5 w-5" aria-hidden="true" />}
+              label={t("settings.messageSound")}
+              description={t("settings.messageSoundHelp")}
             >
-              {soundOn ? (
-                <Volume2 className="h-4 w-4" aria-hidden="true" />
-              ) : (
-                <VolumeX className="h-4 w-4" aria-hidden="true" />
-              )}
-            </span>
-
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-ink-800 dark:text-ink-100">
-                {t("settings.messageSound")}
-              </p>
-              <div
-                className="mt-1.5 flex h-3 items-end gap-0.5"
-                aria-hidden="true"
-              >
-                {[0, 1, 2, 3, 4].map((bar) => (
-                  <span
-                    key={bar}
-                    className={cn(
-                      "w-1 rounded-full transition-all duration-300",
-                      soundOn
-                        ? "animate-pulse bg-brand-500"
-                        : "h-1 bg-ink-300 dark:bg-ink-600",
-                    )}
-                    style={
-                      soundOn
-                        ? {
-                            height: `${4 + ((bar * 7) % 12)}px`,
-                            animationDelay: `${bar * 120}ms`,
-                            animationDuration: "1100ms",
-                          }
-                        : undefined
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={testSound}
-              disabled={!soundOn}
-              aria-label={t("settings.testSound")}
-              title={t("settings.testSound")}
-              className={cn(
-                "btn-ghost h-9 w-9 shrink-0 rounded-full p-0 disabled:cursor-not-allowed disabled:opacity-30",
-                pinging && "text-brand-600",
-              )}
-            >
-              <PlayCircle
-                className={cn("h-4 w-4", pinging && "animate-ping-once")}
-                aria-hidden="true"
-              />
-            </button>
-
-            <button
-              type="button"
-              onClick={toggleSound}
-              role="switch"
-              aria-checked={soundOn}
-              aria-label={t("settings.messageSound")}
-              className={cn(
-                "relative h-6 w-11 shrink-0 rounded-full transition-all duration-300 ease-out",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-ink-800",
-                soundOn
-                  ? "bg-gradient-to-r from-brand-500 to-brand-600 shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]"
-                  : "bg-ink-200 shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] dark:bg-ink-600",
-              )}
-            >
-              <span
+              <button
+                type="button"
+                onClick={testSound}
+                disabled={!soundOn}
                 className={cn(
-                  "absolute top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-black/5 transition-all duration-300 ease-out",
-                  soundOn
-                    ? "translate-x-[1.375rem] text-brand-600 rtl:-translate-x-[1.375rem]"
-                    : "translate-x-0.5 text-transparent",
+                  "btn-ghost h-9 px-2.5 py-0 text-sm disabled:cursor-not-allowed disabled:opacity-40",
+                  pinging && "text-brand-600",
                 )}
               >
-                <Check
-                  className="h-3 w-3 transition-opacity duration-200"
+                <PlayCircle
+                  className={cn("h-4 w-4", pinging && "animate-ping-once")}
                   aria-hidden="true"
                 />
-              </span>
-            </button>
-          </div>
-        </section>
+                {t("settings.testSound")}
+              </button>
 
-        <PushSettingsCard />
+              <button
+                type="button"
+                onClick={toggleSound}
+                role="switch"
+                aria-checked={soundOn}
+                aria-label={t("settings.messageSound")}
+                className={cn(
+                  "relative h-7 w-12 shrink-0 rounded-full transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-ink-800",
+                  soundOn ? "bg-brand-600" : "bg-ink-200 dark:bg-ink-600",
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute start-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform",
+                    soundOn
+                      ? "translate-x-5 rtl:-translate-x-5"
+                      : "translate-x-0",
+                  )}
+                />
+              </button>
+            </SettingsTile>
+
+            <PushSettingsRow />
+          </div>
+        </SettingsSection>
       </div>
     </AppShell>
   );
