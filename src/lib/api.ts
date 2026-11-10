@@ -76,6 +76,7 @@ export const api = {
   conversation: conversationsApi.get,
   messages: conversationsApi.messages,
   markConversationRead: conversationsApi.markRead,
+  setConversationIdentityBlock: conversationsApi.setIdentityBlock,
   uploadMedia: conversationsApi.uploadMedia,
   mediaBlobUrl: conversationsApi.mediaBlobUrl,
   sendMessage: conversationsApi.sendMessage,

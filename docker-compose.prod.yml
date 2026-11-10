@@ -11,7 +11,7 @@ services:
     env_file:
       - ${PORTAL_ENV_FILE:-.env.production}
     environment:
-      EMA_PUBLIC_API_URL: ${EMA_PUBLIC_API_URL:-https://ema-api.duckdns.org}
+      EMA_PUBLIC_API_URL: ${EMA_PUBLIC_API_URL:-https://api.emabbass.com}
       PORT: "3000"
       HOSTNAME: 0.0.0.0
     networks:

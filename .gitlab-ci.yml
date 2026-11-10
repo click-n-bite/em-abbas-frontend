@@ -6,6 +6,17 @@ stages:
 default:
   interruptible: true
 
+# On-demand only: pushes, MRs, and tags do not start a pipeline (saves free
+# minutes). Start from CI/CD → Pipelines → Run pipeline, or via API/trigger.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "api"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+    - if: $CI_PIPELINE_SOURCE == "trigger"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - when: never
+
 test:
   stage: test
   image: node:20-alpine
@@ -19,8 +30,8 @@ test:
     - npm ci --cache .npm
   script:
     - npm run typecheck
+    - node --test tests/channel-identity.test.mjs
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH
     - if: $CI_COMMIT_TAG
 

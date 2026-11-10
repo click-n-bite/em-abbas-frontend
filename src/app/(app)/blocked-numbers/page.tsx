@@ -9,7 +9,6 @@ import {
   PhoneOff,
   Plus,
   RefreshCw,
-  Search,
   ShieldAlert,
   ShieldCheck,
   Undo2,
@@ -20,6 +19,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { useI18n } from "@/providers/i18n-provider";
 import { useToast } from "@/providers/toast-provider";
 import { AppShell } from "@/components/layout/app-shell";
+import { FilterBar, FilterTabs } from "@/components/ui/filter-bar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { Select } from "@/components/ui/select";
@@ -272,60 +272,25 @@ export default function BlockedNumbersPage() {
         </div>
       }
     >
-      <section className="card flex flex-col overflow-hidden lg:h-[calc(100dvh-9rem)] lg:min-h-[24rem]">
-        <header className="shrink-0 border-b border-ink-200 p-2 dark:border-ink-700 lg:px-4 lg:py-3">
-          <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
-            <div className="flex min-w-0 items-center gap-2 px-1 lg:me-auto">
-              <PhoneOff
-                className="h-4 w-4 shrink-0 text-rose-500"
-                aria-hidden="true"
-              />
-              <h2 className="truncate text-sm font-semibold text-ink-900 dark:text-ink-50">
-                {t("blockedNumbers.listTitle")}
-              </h2>
-              <span className="badge bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200">
-                {total}
-              </span>
-            </div>
-
-            <div className="relative order-last w-full min-w-0 lg:order-none lg:w-80 lg:flex-none">
-              <Search
-                className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400"
-                aria-hidden="true"
-              />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder={t("blockedNumbers.searchPlaceholder")}
-                aria-label={t("common.search")}
-                className="input h-11 w-full ps-10 lg:h-10"
-              />
-            </div>
-
-            <div
-              role="tablist"
-              className="flex w-full items-center gap-1 rounded-xl bg-ink-50 p-1 dark:bg-ink-900 lg:w-auto lg:shrink-0"
-            >
-              {STATUS_FILTERS.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="tab"
-                  aria-selected={status === value}
-                  onClick={() => setStatus(value)}
-                  className={cn(
-                    "flex min-h-10 flex-1 items-center justify-center rounded-lg px-2 text-sm font-medium transition lg:min-h-0 lg:flex-none lg:px-3 lg:py-1.5 lg:text-xs",
-                    status === value
-                      ? "bg-white text-brand-700 shadow-sm dark:bg-ink-700 dark:text-brand-100"
-                      : "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100",
-                  )}
-                >
-                  {t(`blockedNumbers.filters.${value}`)}
-                </button>
-              ))}
-            </div>
-          </div>
-        </header>
+      <section className="card flex flex-col overflow-hidden lg:h-full lg:min-h-[24rem]">
+        <FilterBar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder={t("blockedNumbers.searchPlaceholder")}
+          searchLabel={t("common.search")}
+          tabs={
+            <FilterTabs
+              label={t("blockedNumbers.listTitle")}
+              value={status}
+              options={STATUS_FILTERS.map((value) => ({
+                value,
+                label: t(`blockedNumbers.filters.${value}`),
+                count: value === status ? total : null,
+              }))}
+              onChange={setStatus}
+            />
+          }
+        />
 
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
           {loading && total === 0 ? (
@@ -427,7 +392,7 @@ export default function BlockedNumbersPage() {
         </div>
 
         {total > 0 ? (
-          <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-ink-200 px-3 py-2.5 dark:border-ink-700 sm:px-5 sm:py-3">
+          <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-ink-200 px-3 py-2.5 dark:border-ink-700 sm:px-5 lg:py-2">
             <div className="flex min-w-0 items-center gap-2">
               <span className="hidden whitespace-nowrap text-xs text-ink-500 dark:text-ink-400 sm:inline">
                 {t("leads.rowsPerPage")}
@@ -435,7 +400,7 @@ export default function BlockedNumbersPage() {
               <Select
                 value={String(pageSize)}
                 onChange={(event) => setPageSize(Number(event.target.value))}
-                className="h-9 min-w-0 ps-2 pe-8"
+                className="h-9 min-w-0 py-0 ps-2 pe-8 lg:h-8 lg:!text-sm"
                 wrapperClassName="w-auto flex-none"
                 mobileLabel={String(pageSize)}
                 aria-label={t("leads.rowsPerPage")}

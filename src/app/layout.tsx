@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "flag-icons/css/flag-icons.min.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
@@ -27,6 +28,10 @@ export default function RootLayout({
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <head>
+        <meta
+          name="facebook-domain-verification"
+          content="2ifcob0qgww132hrizn6a70l9nbvey"
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"

@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  contactIdentifier,
+  contactName,
+  leadNameWithCountry,
+} from "@/lib/channel-identity";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -22,7 +27,9 @@ import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { CloseLeadModal } from "@/components/leads/close-lead-modal";
+import { EditLeadNameModal } from "@/components/leads/edit-lead-name-modal";
 import { LeadCollectedInformation } from "@/components/leads/lead-collected-information";
+import { LeadPhoneCountry } from "@/components/leads/lead-phone-country";
 import { cn, textDirOf } from "@/lib/utils";
 import type { Lead } from "@/lib/types";
 
@@ -55,7 +62,9 @@ function StatusBadge({ status }: { status: Lead["status"] }) {
         "badge",
         status === "open"
           ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200"
-          : "bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200",
+          : status === "in_progress"
+            ? "bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200"
+            : "bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200",
       )}
     >
       {t(`leads.status.${status}`)}
@@ -157,6 +166,8 @@ function LeadDetailsContent() {
 
   const [closing, setClosing] = useState(false);
 
+  const [renaming, setRenaming] = useState(false);
+
   const [editingNote, setEditingNote] = useState(false);
 
   const [noteDraft, setNoteDraft] = useState("");
@@ -199,6 +210,18 @@ function LeadDetailsContent() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const renameCustomer = async (name: string) => {
+    if (!lead) return;
+
+    try {
+      setLead(await leadsApi.update(lead.id, { customerName: name }));
+      push(t("leads.nameSaved"), "success");
+    } catch (error) {
+      push(errorDetail(error) ?? t(errorKey(error)), "error");
+      throw error;
+    }
+  };
 
   const startEditNote = () => {
     setNoteDraft(lead?.note ?? "");
@@ -276,6 +299,25 @@ function LeadDetailsContent() {
     }
   };
 
+  const changeHandling = async () => {
+    if (!lead) return;
+
+    setBusy(true);
+
+    try {
+      setLead(
+        await leadsApi.update(lead.id, {
+          status: lead.status === "open" ? "in_progress" : "open",
+        }),
+      );
+      push(t("leads.statusUpdated"), "success");
+    } catch (error) {
+      push(errorDetail(error) ?? t(errorKey(error)), "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const closeLead = async (closeNote: string) => {
     if (!lead) return;
 
@@ -326,7 +368,7 @@ function LeadDetailsContent() {
     );
   }
 
-  const displayName = lead?.customerName?.trim() || lead?.phone || "";
+  const displayName = lead ? contactName(lead) : "";
 
   const hasNote = Boolean(lead?.note && lead.note.trim().length > 0);
 
@@ -366,18 +408,41 @@ function LeadDetailsContent() {
                     {initialsOf(displayName)}
                   </div>
                   <div className="min-w-0">
-                    <p
-                      dir={textDirOf(displayName)}
-                      className="break-words text-lg font-semibold leading-6 text-ink-900 [overflow-wrap:anywhere] dark:text-ink-50"
-                    >
-                      {displayName}
-                    </p>
+                    <div className="flex items-start gap-1.5">
+                      <p
+                        dir={textDirOf(displayName)}
+                        className="break-words text-lg font-semibold leading-6 text-ink-900 [overflow-wrap:anywhere] dark:text-ink-50"
+                      >
+                        {leadNameWithCountry(lead)}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setRenaming(true)}
+                        className="btn-ghost inline-flex h-6 w-6 shrink-0 items-center justify-center p-0"
+                        aria-label={t("leads.editName")}
+                        title={t("leads.editName")}
+                      >
+                        <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
                     <p
                       dir="ltr"
                       className="mt-1 break-all text-xs text-ink-500 dark:text-ink-400"
                     >
-                      {lead.phone}
+                      {lead.phone ? (
+                        <a
+                          href={`https://wa.me/${lead.phone.replace(/\D/g, "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline-offset-2 hover:underline"
+                        >
+                          {contactIdentifier(lead)}
+                        </a>
+                      ) : (
+                        contactIdentifier(lead)
+                      )}
                     </p>
+                    <LeadPhoneCountry phone={lead.phone} />
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <SourceBadge source={lead.source} />
                       <StatusBadge status={lead.status} />
@@ -400,7 +465,21 @@ function LeadDetailsContent() {
                     <MessageSquare className="h-4 w-4" aria-hidden="true" />
                     {t("leads.viewChat")}
                   </button>
-                  {lead.status === "open" ? (
+                  {lead.status !== "closed" ? (
+                    <button
+                      type="button"
+                      className="btn-secondary px-3 py-2 text-sm"
+                      disabled={busy}
+                      onClick={() => void changeHandling()}
+                    >
+                      {t(
+                        lead.status === "open"
+                          ? "leads.startProgress"
+                          : "leads.returnToOpen",
+                      )}
+                    </button>
+                  ) : null}
+                  {lead.status !== "closed" ? (
                     <button
                       type="button"
                       className="btn-secondary px-3 py-2 text-sm"
@@ -449,6 +528,28 @@ function LeadDetailsContent() {
                     {formatDateTime(lead.createdAt)}
                   </dd>
                 </div>
+                {lead.startedAt ? (
+                  <>
+                    <div>
+                      <dt className="text-xs text-ink-500">
+                        {t("leads.startedBy")}
+                      </dt>
+                      <dd className="mt-1 text-sm">
+                        <bdi>
+                          {lead.startedBy?.displayName ?? t("common.unknown")}
+                        </bdi>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-ink-500">
+                        {t("leads.startedAt")}
+                      </dt>
+                      <dd className="mt-1 text-sm">
+                        {formatDateTime(lead.startedAt)}
+                      </dd>
+                    </div>
+                  </>
+                ) : null}
                 {lead.status === "closed" ? (
                   <>
                     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] items-baseline gap-x-3 sm:block">
@@ -477,6 +578,19 @@ function LeadDetailsContent() {
             <LeadCollectedInformation
               fields={lead.collectedFields ?? {}}
               serviceName={lead.serviceName}
+              onSave={async (changes) => {
+                try {
+                  const updated = await leadsApi.update(lead.id, {
+                    collectedFields: changes,
+                  });
+
+                  setLead(updated);
+                  push(t("leads.detailsSaved"), "success");
+                } catch (error) {
+                  push(errorDetail(error) ?? t(errorKey(error)), "error");
+                  throw error;
+                }
+              }}
             />
 
             <section className="border-t border-ink-100 p-4 dark:border-ink-800 sm:p-5">
@@ -624,6 +738,12 @@ function LeadDetailsContent() {
         lead={closing ? lead : null}
         onClose={() => setClosing(false)}
         onSubmit={closeLead}
+      />
+
+      <EditLeadNameModal
+        lead={renaming ? lead : null}
+        onClose={() => setRenaming(false)}
+        onSubmit={renameCustomer}
       />
     </AppShell>
   );

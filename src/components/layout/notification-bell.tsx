@@ -1,14 +1,18 @@
 "use client";
 
+import { contactIdentifier } from "@/lib/channel-identity";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck } from "lucide-react";
+import { useNow } from "@/hooks/use-now";
 import { useI18n } from "@/providers/i18n-provider";
 import { useNotifications } from "@/providers/notifications-provider";
 import { Spinner } from "@/components/ui/spinner";
 
 export function NotificationBell() {
   const { t, formatRelative } = useI18n();
+
+  const now = useNow();
 
   const { items, unread, loading, markRead, markAllRead } = useNotifications();
 
@@ -120,10 +124,12 @@ export function NotificationBell() {
                             {item.title}
                           </span>
                           <span className="block truncate text-xs text-ink-500 dark:text-ink-400">
-                            {item.body ?? item.preview ?? item.phone ?? ""}
+                            {item.body ??
+                              item.preview ??
+                              contactIdentifier({ ...item, id: undefined })}
                           </span>
                           <span className="mt-0.5 block text-[11px] text-ink-400">
-                            {formatRelative(item.createdAt)}
+                            {formatRelative(item.createdAt, now)}
                           </span>
                         </span>
                       </Link>

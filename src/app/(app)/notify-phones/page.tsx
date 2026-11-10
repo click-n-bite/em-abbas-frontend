@@ -1,310 +1,135 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import {
-  BellRing,
-  Pencil,
-  Plus,
-  RefreshCw,
-  ShieldAlert,
-  Trash2,
-} from "lucide-react";
-import { adminApi } from "@/lib/api";
-import { errorDetail, errorKey } from "@/lib/errors";
-import { useAuth } from "@/providers/auth-provider";
-import { useI18n } from "@/providers/i18n-provider";
-import { useToast } from "@/providers/toast-provider";
+import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ShieldAlert } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
-import { ConfirmDialog } from "@/components/confirm-dialog";
-import { NotifyPhoneFormModal } from "@/components/notify-phones/notify-phone-form-modal";
-import { cn, textDirOf } from "@/lib/utils";
-import type { NotifyPhone } from "@/lib/types";
-import type {
-  CreateNotifyPhonePayload,
-  UpdateNotifyPhonePayload,
-} from "@/lib/api";
+import { NotificationNumbersTab } from "@/components/notify-phones/notification-numbers-tab";
+import { LeadResendsTab } from "@/components/notify-phones/lead-resends-tab";
+import { useAuth } from "@/providers/auth-provider";
+import { useI18n } from "@/providers/i18n-provider";
+import { cn } from "@/lib/utils";
 
-export default function NotifyPhonesPage() {
-  const { t, formatDateTime } = useI18n();
+export default function LeadNotificationsPage() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <LeadNotificationsContent />
+    </Suspense>
+  );
+}
 
-  const { role, canManageUsers } = useAuth();
+function LeadNotificationsContent() {
+  const { ready, token, canManageUsers } = useAuth();
 
-  const { push } = useToast();
+  const { t } = useI18n();
 
-  const [entries, setEntries] = useState<NotifyPhone[]>([]);
+  const router = useRouter();
 
-  const [loading, setLoading] = useState(true);
+  const params = useSearchParams();
 
-  const [failure, setFailure] = useState<string | null>(null);
+  const tab = params.get("tab") === "resend" ? "resend" : "numbers";
 
-  const [formOpen, setFormOpen] = useState(false);
+  const selectedId = params.get("batch");
 
-  const [editing, setEditing] = useState<NotifyPhone | null>(null);
+  const navigate = (next: "numbers" | "resend", batch?: string) => {
+    const query = new URLSearchParams();
 
-  const [pendingRemove, setPendingRemove] = useState<NotifyPhone | null>(null);
+    if (next === "resend") query.set("tab", "resend");
 
-  const [busyToggleId, setBusyToggleId] = useState<number | null>(null);
+    if (next === "resend" && batch) query.set("batch", batch);
 
-  const load = useCallback(async () => {
-    try {
-      const list = await adminApi.listNotifyPhones();
-
-      setEntries(list);
-      setFailure(null);
-    } catch (error) {
-      setFailure(errorKey(error));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const openAdd = () => {
-    setEditing(null);
-    setFormOpen(true);
+    router.replace(`/notify-phones${query.size ? `?${query}` : ""}`, {
+      scroll: false,
+    });
   };
-
-  const openEdit = (entry: NotifyPhone) => {
-    setEditing(entry);
-    setFormOpen(true);
-  };
-
-  const submit = async (
-    payload: CreateNotifyPhonePayload | UpdateNotifyPhonePayload,
-  ) => {
-    try {
-      if (editing) {
-        const updated = await adminApi.updateNotifyPhone(editing.id, payload);
-
-        setEntries((current) =>
-          current.map((entry) => (entry.id === updated.id ? updated : entry)),
-        );
-        push(t("notifyPhones.updated"), "success");
-      } else {
-        const created = await adminApi.addNotifyPhone(
-          payload as CreateNotifyPhonePayload,
-        );
-
-        setEntries((current) => [created, ...current]);
-        push(t("notifyPhones.added"), "success");
-      }
-
-      setFormOpen(false);
-    } catch (error) {
-      push(errorDetail(error) ?? t(errorKey(error)), "error");
-    }
-  };
-
-  const toggleEnabled = async (entry: NotifyPhone) => {
-    setBusyToggleId(entry.id);
-
-    try {
-      const updated = await adminApi.updateNotifyPhone(entry.id, {
-        notificationsEnabled: !entry.notificationsEnabled,
-      });
-
-      setEntries((current) =>
-        current.map((item) => (item.id === updated.id ? updated : item)),
-      );
-    } catch (error) {
-      push(errorDetail(error) ?? t(errorKey(error)), "error");
-    } finally {
-      setBusyToggleId(null);
-    }
-  };
-
-  const remove = async (entry: NotifyPhone) => {
-    try {
-      await adminApi.deleteNotifyPhone(entry.id);
-      setEntries((current) => current.filter((item) => item.id !== entry.id));
-      push(t("notifyPhones.deleted"), "success");
-    } catch (error) {
-      push(errorDetail(error) ?? t(errorKey(error)), "error");
-    }
-  };
-
-  if (!canManageUsers) {
-    return (
-      <AppShell title={t("notifyPhones.title")}>
-        <section className="card">
-          <EmptyState
-            icon={<ShieldAlert className="h-5 w-5" aria-hidden="true" />}
-            title={t("notifyPhones.forbidden")}
-            description={`${t("settings.role")}: ${t(`users.roles.${role}`)}`}
-          />
-        </section>
-      </AppShell>
-    );
-  }
 
   return (
     <AppShell
       title={t("notifyPhones.title")}
-      subtitle={failure ? t(failure) : t("notifyPhones.subtitle")}
-      actions={
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="btn-secondary px-3 py-2"
-            aria-label={t("common.refresh")}
-            title={t("common.refresh")}
-          >
-            <RefreshCw
-              className={cn("h-4 w-4", loading && "animate-spin")}
-              aria-hidden="true"
-            />
-          </button>
-          <button
-            type="button"
-            onClick={openAdd}
-            className="btn-primary px-3 py-2"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            {t("notifyPhones.add")}
-          </button>
-        </div>
-      }
+      subtitle={t("notifyPhones.managementSubtitle")}
     >
-      <section className="card overflow-hidden">
-        <header className="flex items-center gap-2 border-b border-ink-200 px-5 py-4 dark:border-ink-700">
-          <BellRing className="h-4 w-4 text-brand-600" aria-hidden="true" />
-          <h2 className="text-sm font-semibold text-ink-900 dark:text-ink-50">
-            {t("notifyPhones.listTitle")}
-          </h2>
-          <span className="badge bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200">
-            {entries.length}
-          </span>
-        </header>
-
-        {loading && entries.length === 0 ? (
-          <ul className="space-y-3 p-5">
-            {[0, 1, 2].map((index) => (
-              <li key={index} className="skeleton h-10 w-full" />
-            ))}
-          </ul>
-        ) : entries.length === 0 ? (
+      {!ready ? (
+        <Spinner />
+      ) : !token || !canManageUsers ? (
+        <section className="card">
           <EmptyState
-            icon={<BellRing className="h-5 w-5" aria-hidden="true" />}
-            title={t("notifyPhones.empty")}
-            description={t("notifyPhones.emptyHint")}
+            icon={<ShieldAlert className="h-5 w-5" aria-hidden="true" />}
+            title={t("resends.forbidden")}
           />
-        ) : (
-          <ul className="divide-y divide-ink-100 dark:divide-ink-700/70">
-            {entries.map((entry) => (
-              <li
-                key={entry.id}
-                className="flex animate-fade-in items-center gap-3 px-5 py-3.5"
+        </section>
+      ) : (
+        <div className="space-y-5">
+          <div
+            role="tablist"
+            aria-label={t("notifyPhones.title")}
+            className="flex gap-1 rounded-xl bg-ink-100 p-1 dark:bg-ink-800"
+          >
+            {(["numbers", "resend"] as const).map((name) => (
+              <button
+                key={name}
+                type="button"
+                role="tab"
+                id={`notifications-tab-${name}`}
+                aria-controls={`notifications-panel-${name}`}
+                aria-selected={tab === name}
+                tabIndex={tab === name ? 0 : -1}
+                onClick={() => navigate(name)}
+                onKeyDown={(event) => {
+                  if (
+                    !["ArrowLeft", "ArrowRight", "Home", "End"].includes(
+                      event.key,
+                    )
+                  )
+                    return;
+
+                  event.preventDefault();
+                  const next =
+                    event.key === "Home"
+                      ? "numbers"
+                      : event.key === "End"
+                        ? "resend"
+                        : tab === "numbers"
+                          ? "resend"
+                          : "numbers";
+
+                  navigate(next);
+                  requestAnimationFrame(() =>
+                    document
+                      .getElementById(`notifications-tab-${next}`)
+                      ?.focus(),
+                  );
+                }}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-2.5 text-sm font-medium transition",
+                  tab === name
+                    ? "bg-white text-brand-700 shadow-sm dark:bg-ink-700 dark:text-brand-200"
+                    : "text-ink-600 dark:text-ink-300",
+                )}
               >
-                <span className="text-xl" aria-hidden="true">
-                  📱
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p
-                    dir={textDirOf(entry.name)}
-                    className="truncate text-sm font-medium text-ink-900 dark:text-ink-50"
-                  >
-                    {entry.name}
-                    <span
-                      className="ms-2 font-normal text-ink-500 dark:text-ink-400"
-                      dir="ltr"
-                    >
-                      +{entry.phoneNumber}
-                    </span>
-                  </p>
-                  <p className="truncate text-xs text-ink-500 dark:text-ink-400">
-                    {t("notifyPhones.updatedAt")}{" "}
-                    {formatDateTime(entry.updatedAt)}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => void toggleEnabled(entry)}
-                  disabled={busyToggleId === entry.id}
-                  aria-pressed={entry.notificationsEnabled}
-                  aria-label={t("notifyPhones.notificationsEnabled")}
-                  title={t(
-                    entry.notificationsEnabled
-                      ? "notifyPhones.enabled"
-                      : "notifyPhones.disabled",
-                  )}
-                  className="relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60"
-                >
-                  <span
-                    className={cn(
-                      "absolute inset-0 rounded-full transition-colors",
-                      entry.notificationsEnabled
-                        ? "bg-brand-600"
-                        : "bg-ink-300 dark:bg-ink-600",
-                    )}
-                  />
-                  <span
-                    className={cn(
-                      "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-                      entry.notificationsEnabled
-                        ? "translate-x-0 rtl:-translate-x-[0.05rem]"
-                        : "-translate-x-5 rtl:translate-x-5",
-                    )}
-                  />
-                  {busyToggleId === entry.id ? (
-                    <Spinner className="absolute inset-0 m-auto h-3 w-3 text-white" />
-                  ) : null}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn-ghost shrink-0"
-                  onClick={() => openEdit(entry)}
-                  aria-label={t("common.edit")}
-                  title={t("common.edit")}
-                >
-                  <Pencil className="h-4 w-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">{t("common.edit")}</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="btn-ghost shrink-0 text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950"
-                  onClick={() => setPendingRemove(entry)}
-                >
-                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">{t("common.delete")}</span>
-                </button>
-              </li>
+                {t(
+                  `notifyPhones.${name === "numbers" ? "numbersTab" : "resendTab"}`,
+                )}
+              </button>
             ))}
-          </ul>
-        )}
-      </section>
-
-      <NotifyPhoneFormModal
-        open={formOpen}
-        entry={editing}
-        onClose={() => setFormOpen(false)}
-        onSubmit={submit}
-      />
-
-      <ConfirmDialog
-        open={pendingRemove !== null}
-        title={t("notifyPhones.deleteTitle")}
-        body={
-          pendingRemove
-            ? t("notifyPhones.deleteBody", {
-                phone: `+${pendingRemove.phoneNumber}`,
-              })
-            : undefined
-        }
-        confirmLabel={t("common.delete")}
-        onConfirm={async () => {
-          if (pendingRemove) await remove(pendingRemove);
-        }}
-        onClose={() => setPendingRemove(null)}
-      />
+          </div>
+          <div
+            role="tabpanel"
+            id={`notifications-panel-${tab}`}
+            aria-labelledby={`notifications-tab-${tab}`}
+          >
+            {tab === "numbers" ? (
+              <NotificationNumbersTab />
+            ) : (
+              <LeadResendsTab
+                selectedId={selectedId}
+                onSelect={(id) => navigate("resend", id ?? undefined)}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

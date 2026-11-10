@@ -1,5 +1,6 @@
 "use client";
 
+import { contactIdentifier, contactSearchText } from "@/lib/channel-identity";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -13,13 +14,15 @@ import {
   ChevronRight,
   Phone,
   RefreshCw,
-  Search,
+  UserRound,
 } from "lucide-react";
+import { useNow } from "@/hooks/use-now";
 import { useI18n } from "@/providers/i18n-provider";
 import { useNotifications } from "@/providers/notifications-provider";
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ModeBadge } from "@/components/ui/badges";
+import { FilterBar, FilterTabs } from "@/components/ui/filter-bar";
 import { Select } from "@/components/ui/select";
 import { cn, textDirOf } from "@/lib/utils";
 
@@ -60,6 +63,8 @@ function pageNumbers(current: number, total: number): (number | "gap")[] {
 export default function NotificationsPage() {
   const { t, formatDateTime, formatRelative } = useI18n();
 
+  const nowMs = useNow();
+
   const {
     items,
     unread,
@@ -86,7 +91,7 @@ export default function NotificationsPage() {
 
   const tableRef = useRef<HTMLDivElement | null>(null);
 
-  const now = useMemo(() => new Date(), []);
+  const now = useMemo(() => new Date(nowMs), [nowMs]);
 
   const filtered = useMemo(() => {
     let list = onlyUnread ? items.filter((item) => !item.read) : items;
@@ -109,7 +114,7 @@ export default function NotificationsPage() {
           item.title,
           item.body,
           item.preview,
-          item.phone,
+          contactSearchText(item),
           item.customerName,
           item.serviceName,
         ]
@@ -143,7 +148,11 @@ export default function NotificationsPage() {
   const derive = (item: NotificationItem) => {
     const summary =
       item.customerName && item.serviceName
-        ? [item.customerName, item.serviceName, item.phone]
+        ? [
+            item.customerName,
+            item.serviceName,
+            contactIdentifier({ ...item, id: undefined }),
+          ]
             .filter(Boolean)
             .join(" · ")
         : null;
@@ -154,9 +163,9 @@ export default function NotificationsPage() {
         : item.body;
 
     const showPhone = Boolean(
-      item.phone &&
-        !body?.includes(item.phone) &&
-        !item.preview?.includes(item.phone),
+      contactIdentifier({ ...item, id: undefined }) &&
+        !body?.includes(contactIdentifier({ ...item, id: undefined })) &&
+        !item.preview?.includes(contactIdentifier({ ...item, id: undefined })),
     );
 
     return { body, showPhone };
@@ -255,27 +264,38 @@ export default function NotificationsPage() {
         </div>
       }
     >
-      <section className="card flex h-[calc(100dvh-8.5rem)] min-h-[28rem] flex-col overflow-hidden lg:h-[calc(100dvh-9rem)] lg:min-h-[24rem]">
-        <header className="shrink-0 border-b border-ink-200 p-2 dark:border-ink-700 lg:px-4 lg:py-3">
-          <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">
-            <div className="relative min-w-0 flex-1 lg:w-[22rem] lg:flex-none">
-              <Search
-                className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400"
-                aria-hidden="true"
-              />
-              <input
-                type="search"
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.target.value);
-                  setPage(0);
-                }}
-                placeholder={t("notifications.searchPlaceholder")}
-                aria-label={t("notifications.searchLabel")}
-                className="input h-11 w-full ps-9 lg:h-10"
-              />
-            </div>
-
+      <section className="card flex h-[calc(100dvh-8.5rem)] min-h-[28rem] flex-col overflow-hidden lg:h-full lg:min-h-[24rem]">
+        <FilterBar
+          search={query}
+          onSearchChange={(value) => {
+            setQuery(value);
+            setPage(0);
+          }}
+          searchPlaceholder={t("notifications.searchPlaceholder")}
+          searchLabel={t("notifications.searchLabel")}
+          tabs={
+            <FilterTabs
+              label={t("notifications.title")}
+              value={onlyUnread ? "unread" : "all"}
+              options={[
+                {
+                  value: "all",
+                  label: t("notifications.tabAll"),
+                  count: items.length,
+                },
+                {
+                  value: "unread",
+                  label: t("notifications.tabUnread"),
+                  count: unread,
+                },
+              ]}
+              onChange={(value) => {
+                setOnlyUnread(value === "unread");
+                setPage(0);
+              }}
+            />
+          }
+          inlineFilter={
             <div className="relative min-w-24 shrink-0">
               <CalendarDays
                 className="pointer-events-none absolute start-3 top-1/2 z-10 hidden h-4 w-4 -translate-y-1/2 text-ink-400 sm:block"
@@ -296,56 +316,8 @@ export default function NotificationsPage() {
                 <option value="30d">{t("notifications.range30d")}</option>
               </Select>
             </div>
-
-            <div
-              role="tablist"
-              aria-label={t("notifications.title")}
-              className="flex w-full items-center gap-1 rounded-xl bg-ink-50 p-1 dark:bg-ink-900 lg:w-auto lg:shrink-0"
-            >
-              {[
-                {
-                  value: false,
-                  label: t("notifications.tabAll"),
-                  count: items.length,
-                },
-                {
-                  value: true,
-                  label: t("notifications.tabUnread"),
-                  count: unread,
-                },
-              ].map((tab) => (
-                <button
-                  key={String(tab.value)}
-                  type="button"
-                  role="tab"
-                  aria-selected={onlyUnread === tab.value}
-                  onClick={() => {
-                    setOnlyUnread(tab.value);
-                    setPage(0);
-                  }}
-                  className={cn(
-                    "flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-medium transition lg:min-h-0 lg:flex-none lg:px-3 lg:py-1.5 lg:text-xs",
-                    onlyUnread === tab.value
-                      ? "bg-white text-brand-700 shadow-sm dark:bg-ink-700 dark:text-brand-100"
-                      : "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100",
-                  )}
-                >
-                  {tab.label}
-                  <span
-                    className={cn(
-                      "rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
-                      onlyUnread === tab.value
-                        ? "bg-brand-600 text-white"
-                        : "bg-ink-200 dark:bg-ink-700",
-                    )}
-                  >
-                    {tab.count}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </header>
+          }
+        />
         <div
           ref={listRef}
           className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:overflow-hidden"
@@ -414,7 +386,7 @@ export default function NotificationsPage() {
                               title={formatDateTime(item.createdAt)}
                               className="shrink-0 whitespace-nowrap text-xs text-ink-500 dark:text-ink-400"
                             >
-                              {formatRelative(item.createdAt)}
+                              {formatRelative(item.createdAt, nowMs)}
                             </time>
                           </div>
 
@@ -442,11 +414,23 @@ export default function NotificationsPage() {
                             ) : null}
                             {showPhone ? (
                               <p className="flex items-center gap-1.5 text-xs text-ink-500 dark:text-ink-400">
-                                <Phone
-                                  className="h-3.5 w-3.5 shrink-0"
-                                  aria-hidden="true"
-                                />
-                                <bdi dir="ltr">{item.phone}</bdi>
+                                {item.phone ? (
+                                  <Phone
+                                    className="h-3.5 w-3.5 shrink-0"
+                                    aria-hidden="true"
+                                  />
+                                ) : (
+                                  <UserRound
+                                    className="h-3.5 w-3.5 shrink-0"
+                                    aria-hidden="true"
+                                  />
+                                )}
+                                <bdi dir="ltr">
+                                  {contactIdentifier({
+                                    ...item,
+                                    id: undefined,
+                                  })}
+                                </bdi>
                               </p>
                             ) : null}
                             {item.preview ? (
@@ -563,11 +547,23 @@ export default function NotificationsPage() {
                               ) : null}
                               {showPhone ? (
                                 <p className="flex items-center gap-1.5 text-xs text-ink-500 dark:text-ink-400">
-                                  <Phone
-                                    className="h-3.5 w-3.5 shrink-0"
-                                    aria-hidden="true"
-                                  />
-                                  <bdi dir="ltr">{item.phone}</bdi>
+                                  {item.phone ? (
+                                    <Phone
+                                      className="h-3.5 w-3.5 shrink-0"
+                                      aria-hidden="true"
+                                    />
+                                  ) : (
+                                    <UserRound
+                                      className="h-3.5 w-3.5 shrink-0"
+                                      aria-hidden="true"
+                                    />
+                                  )}
+                                  <bdi dir="ltr">
+                                    {contactIdentifier({
+                                      ...item,
+                                      id: undefined,
+                                    })}
+                                  </bdi>
                                 </p>
                               ) : null}
                               {item.preview ? (
@@ -589,7 +585,7 @@ export default function NotificationsPage() {
                             title={formatDateTime(item.createdAt)}
                           >
                             <time dateTime={item.createdAt}>
-                              {formatRelative(item.createdAt)}
+                              {formatRelative(item.createdAt, nowMs)}
                             </time>
                           </td>
 
@@ -607,7 +603,7 @@ export default function NotificationsPage() {
         </div>
 
         {total > 0 ? (
-          <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-ink-200 px-3 py-2.5 dark:border-ink-700 sm:px-5 sm:py-3">
+          <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-ink-200 px-3 py-2.5 dark:border-ink-700 sm:px-5 lg:py-2">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex items-center gap-2">
                 <span className="hidden whitespace-nowrap text-xs text-ink-500 dark:text-ink-400 lg:inline">
@@ -619,7 +615,7 @@ export default function NotificationsPage() {
                     setPageSize(Number(event.target.value));
                     setPage(0);
                   }}
-                  className="h-9 min-w-0 ps-2 pe-8"
+                  className="h-9 min-w-0 py-0 ps-2 pe-8 lg:h-8 lg:!text-sm"
                   wrapperClassName="w-auto flex-none"
                   mobileLabel={String(pageSize)}
                   aria-label={t("notifications.rowsPerPage")}

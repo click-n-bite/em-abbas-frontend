@@ -29,7 +29,7 @@ export interface ConversationActivityEvent {
 
 export interface ConversationActivityResponse {
   conversationId: string;
-  phone: string;
+  phone: string | null;
   events: ConversationActivityEvent[];
 }
 

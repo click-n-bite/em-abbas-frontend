@@ -9,7 +9,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Baked fallback only. Each server sets EMA_PUBLIC_API_URL at runtime.
-ENV NEXT_PUBLIC_API_URL=https://ema-api.duckdns.org
+ENV NEXT_PUBLIC_API_URL=https://api.emabbass.com
 RUN npm run build
 
 FROM node:20-alpine AS runner

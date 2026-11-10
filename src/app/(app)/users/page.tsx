@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
   RefreshCw,
-  Search,
   ShieldAlert,
   Trash2,
   Pencil,
@@ -19,6 +18,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { Avatar } from "@/components/ui/avatar";
 import { RoleBadge, StatusDot } from "@/components/ui/badges";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilterBar, FilterTabs } from "@/components/ui/filter-bar";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { UserFormModal } from "@/components/users/user-form-modal";
 import { SortControl, SortableTh } from "@/components/ui/sortable-header";
@@ -28,7 +28,7 @@ import type { PortalUser, Role, UserSortField } from "@/lib/types";
 
 type RoleFilter = Role | "all";
 
-const ROLE_FILTERS: RoleFilter[] = ["all", "superadmin", "admin", "agent"];
+const ROLE_FILTERS: RoleFilter[] = ["all", "admin", "agent"];
 
 type UserSort = SortState<UserSortField>;
 
@@ -130,23 +130,27 @@ export default function UsersPage() {
     void load();
   }, [canManageUsers, load]);
 
-  const filtered = useMemo(() => {
+  // Tab counts follow the search, like the Leads tabs.
+  const matching = useMemo(() => {
     const needle = query.trim().toLowerCase();
 
-    const byRole =
-      roleFilter === "all"
-        ? users
-        : users.filter((user) => user.role === roleFilter);
+    if (!needle) return users;
 
-    if (!needle) return byRole;
-
-    return byRole.filter((user) =>
+    return users.filter((user) =>
       [user.displayName, user.username, t(`users.roles.${user.role}`)]
         .join(" ")
         .toLowerCase()
         .includes(needle),
     );
-  }, [users, query, roleFilter, t]);
+  }, [users, query, t]);
+
+  const filtered = useMemo(
+    () =>
+      roleFilter === "all"
+        ? matching
+        : matching.filter((user) => user.role === roleFilter),
+    [matching, roleFilter],
+  );
 
   const submit = async (payload: UserPayload) => {
     try {
@@ -229,21 +233,29 @@ export default function UsersPage() {
       }
     >
       <section className="card overflow-hidden">
-        <header className="flex flex-col gap-3 border-b border-ink-200 p-4 dark:border-ink-700 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative max-w-sm sm:flex-1">
-            <Search
-              className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400"
-              aria-hidden="true"
+        <FilterBar
+          search={query}
+          onSearchChange={setQuery}
+          searchPlaceholder={t("common.search")}
+          searchLabel={t("common.search")}
+          tabs={
+            <FilterTabs<RoleFilter>
+              label={t("users.title")}
+              value={roleFilter}
+              options={ROLE_FILTERS.map((value) => ({
+                value,
+                label: t(`users.filters.${value}`),
+                count:
+                  value === "all"
+                    ? matching.length
+                    : matching.filter((user) => user.role === value).length,
+              }))}
+              onChange={setRoleFilter}
             />
-            <input
-              className="input ps-9"
-              placeholder={t("common.search")}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              aria-label={t("common.search")}
-            />
-          </div>
+          }
+        />
 
+        <div className="border-b border-ink-200 p-3 dark:border-ink-700 lg:hidden">
           <SortControl
             sort={sort}
             onChange={setSort}
@@ -251,33 +263,9 @@ export default function UsersPage() {
               field,
               label: t(`sorting.userFields.${field}`),
             }))}
-            className="lg:hidden"
             selectClassName="h-10"
           />
-
-          <div
-            role="tablist"
-            className="flex flex-wrap gap-1 rounded-xl bg-ink-100 p-1 dark:bg-ink-900"
-          >
-            {ROLE_FILTERS.map((value) => (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                aria-selected={roleFilter === value}
-                onClick={() => setRoleFilter(value)}
-                className={cn(
-                  "rounded-lg px-2.5 py-1.5 text-xs font-medium transition",
-                  roleFilter === value
-                    ? "bg-white text-ink-900 shadow-sm dark:bg-ink-700 dark:text-ink-50"
-                    : "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100",
-                )}
-              >
-                {t(`users.filters.${value}`)}
-              </button>
-            ))}
-          </div>
-        </header>
+        </div>
 
         {loading && users.length === 0 ? (
           <ul className="space-y-3 p-5">
@@ -308,28 +296,28 @@ export default function UsersPage() {
                       label={t("users.name")}
                       sort={sort}
                       onSort={onHeaderSort}
-                      className="px-5 py-3 text-center font-medium"
+                      className="py-3 pe-5 ps-4 text-start font-medium"
                     />
                     <SortableTh
                       field="role"
                       label={t("users.role")}
                       sort={sort}
                       onSort={onHeaderSort}
-                      className="px-5 py-3 text-center font-medium"
+                      className="py-3 pe-5 ps-4 text-start font-medium"
                     />
                     <SortableTh
                       field="isActive"
                       label={t("users.status")}
                       sort={sort}
                       onSort={onHeaderSort}
-                      className="px-5 py-3 text-center font-medium"
+                      className="py-3 pe-5 ps-4 text-start font-medium"
                     />
                     <SortableTh
                       field="createdAt"
                       label={t("users.created")}
                       sort={sort}
                       onSort={onHeaderSort}
-                      className="px-5 py-3 text-center font-medium"
+                      className="py-3 pe-5 ps-4 text-start font-medium"
                     />
                     <th className="px-5 py-3 text-end font-medium">
                       {t("users.actions")}

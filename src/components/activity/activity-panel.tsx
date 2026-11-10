@@ -46,6 +46,8 @@ const eventIcons: Record<string, typeof Bot> = {
   "agent.took_over": Headphones,
   handed_to_ai: Undo2,
   "number.blocked": ShieldOff,
+  "identity.blocked": ShieldOff,
+  "identity.unblocked": Undo2,
   "number.unblocked": Undo2,
   "conversation.hidden": EyeOff,
   "conversation.unhidden": Eye,

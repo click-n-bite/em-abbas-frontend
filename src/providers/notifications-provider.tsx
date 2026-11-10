@@ -30,6 +30,24 @@ interface NotificationsValue {
 
 const NotificationsContext = createContext<NotificationsValue | null>(null);
 
+function shouldRefreshNotifications(
+  payload: Record<string, unknown> | null,
+): boolean {
+  const name = typeof payload?.event === "string" ? payload.event : "";
+
+  if (!name) return false;
+
+  if (name === "handoff.requested" || name === "conversation.assigned")
+    return true;
+
+  if (/lead|notification/i.test(name)) return true;
+
+  return (
+    name === "conversation.upserted" &&
+    payload?.lastMessageDirection === "inbound"
+  );
+}
+
 export function NotificationsProvider({
   children,
 }: {
@@ -47,12 +65,22 @@ export function NotificationsProvider({
 
   const inFlight = useRef<boolean>(false);
 
+  const pending = useRef<boolean>(false);
+
+  const refreshRef = useRef<() => Promise<void>>(async () => undefined);
+
   useEffect(() => {
     unlockSoundOnFirstInteraction();
   }, []);
 
   const refresh = useCallback(async (): Promise<void> => {
-    if (!token || inFlight.current) return;
+    if (!token) return;
+
+    if (inFlight.current) {
+      pending.current = true;
+
+      return;
+    }
 
     inFlight.current = true;
 
@@ -70,8 +98,15 @@ export function NotificationsProvider({
     } finally {
       inFlight.current = false;
       setLoading(false);
+
+      if (pending.current) {
+        pending.current = false;
+        void refreshRef.current();
+      }
     }
   }, [token]);
+
+  refreshRef.current = refresh;
 
   useEffect(() => {
     if (!token) {
@@ -88,6 +123,19 @@ export function NotificationsProvider({
 
   usePoll(() => void refresh(), 30000, Boolean(token));
 
+  useEffect(() => {
+    if (!token || !("serviceWorker" in navigator)) return;
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === "ema-notification") void refresh();
+    };
+
+    navigator.serviceWorker.addEventListener("message", onMessage);
+
+    return () =>
+      navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [token, refresh]);
+
   const topics = useMemo(
     () => (agent ? ["/topic/inbox", `/topic/agent/${agent.id}`] : []),
     [agent],
@@ -99,12 +147,7 @@ export function NotificationsProvider({
     onEvent: (raw) => {
       const payload = raw as Record<string, unknown> | null;
 
-      if (
-        payload?.event === "handoff.requested" ||
-        payload?.event === "conversation.assigned"
-      ) {
-        void refresh();
-      }
+      if (shouldRefreshNotifications(payload)) void refresh();
 
       if (payload?.event === "handoff.requested") {
         playMessageSound();

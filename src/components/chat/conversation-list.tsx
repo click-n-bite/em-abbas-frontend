@@ -1,7 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { Eye, EyeOff, Inbox, Search } from "lucide-react";
+import {
+  contactIdentifier,
+  contactNameWithCountry,
+} from "@/lib/channel-identity";
+import { useId, useRef, useState } from "react";
+import {
+  Check,
+  Eye,
+  EyeOff,
+  Inbox,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
+import { useNow } from "@/hooks/use-now";
 import { useI18n } from "@/providers/i18n-provider";
 import { useAuth } from "@/providers/auth-provider";
 import { Avatar } from "@/components/ui/avatar";
@@ -51,9 +64,46 @@ export function ConversationList({
 }: Props) {
   const { t, formatRelative } = useI18n();
 
+  const now = useNow();
+
   const { agent, canManageUsers } = useAuth();
 
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  const showAgentFilter = agents.length > 0 && Boolean(onAgentFilterChange);
+
+  const agentMenuId = useId();
+
+  const agentMenu = useRef<HTMLDivElement>(null);
+
+  const selectedAgent =
+    agentFilter === "all"
+      ? null
+      : (agents.find((user) => user.id === agentFilter) ?? null);
+
+  const selectedAgentName = selectedAgent
+    ? selectedAgent.displayName || selectedAgent.username
+    : null;
+
+  const pickAgent = (id: string) => {
+    agentMenu.current?.hidePopover();
+    onAgentFilterChange?.(id);
+  };
+
+  // Same native-popover placement as the Leads row menu, so the list isn't clipped.
+  const positionAgentMenu = (trigger: HTMLButtonElement) => {
+    if (!agentMenu.current) return;
+
+    const bounds = trigger.getBoundingClientRect();
+
+    const rtl = getComputedStyle(trigger).direction === "rtl";
+
+    agentMenu.current.style.insetInlineEnd = `${Math.max(8, rtl ? bounds.left : document.documentElement.clientWidth - bounds.right)}px`;
+    agentMenu.current.style.top = `${bounds.bottom + 4}px`;
+  };
+
+  const agentItemClass =
+    "flex w-full items-center gap-2 rounded-md px-3 py-2 text-start text-sm hover:bg-ink-100 focus-visible:bg-ink-100 dark:hover:bg-ink-700 dark:focus-visible:bg-ink-700";
 
   const toggleHide = async (id: string, hide: boolean) => {
     if (!onToggleHide) return;
@@ -82,18 +132,90 @@ export function ConversationList({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="space-y-3 border-b border-ink-200 p-3 dark:border-ink-700">
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-ink-400"
-            aria-hidden="true"
-          />
-          <input
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder={t("inbox.searchPlaceholder")}
-            aria-label={t("common.search")}
-            className="input text-base ps-9"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search
+              className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-ink-400"
+              aria-hidden="true"
+            />
+            <input
+              value={search}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder={t("inbox.searchPlaceholder")}
+              aria-label={t("common.search")}
+              className="input h-9 py-0 ps-9 lg:!text-sm"
+            />
+          </div>
+
+          {/* Admin/superadmin only — narrows the "All"/"Agent" tabs to one agent's chats. */}
+          {showAgentFilter ? (
+            <>
+              <button
+                type="button"
+                className={cn(
+                  "btn-secondary relative h-9 w-9 shrink-0 justify-center p-0",
+                  selectedAgent && "text-brand-600 dark:text-brand-300",
+                )}
+                aria-label={t("inbox.filterByAgent")}
+                title={t("inbox.filterByAgent")}
+                aria-haspopup="true"
+                {...{ popovertarget: agentMenuId }}
+                onClick={(event) => positionAgentMenu(event.currentTarget)}
+              >
+                <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                {selectedAgent ? (
+                  <span
+                    className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-600 dark:bg-brand-400"
+                    aria-hidden="true"
+                  />
+                ) : null}
+              </button>
+              <div
+                ref={agentMenu}
+                id={agentMenuId}
+                {...{ popover: "auto" }}
+                role="group"
+                aria-label={t("inbox.filterByAgent")}
+                className="fixed inset-auto m-0 max-h-80 min-w-48 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-ink-200 bg-white p-1 text-ink-800 shadow-lg dark:border-ink-700 dark:bg-ink-800 dark:text-ink-100"
+              >
+                {[
+                  { id: "all", name: t("inbox.allAgents") },
+                  ...agents.map((user) => ({
+                    id: user.id,
+                    name: user.displayName || user.username,
+                  })),
+                ].map((option) => {
+                  const selected = agentFilter === option.id;
+
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      aria-pressed={selected}
+                      className={cn(
+                        agentItemClass,
+                        selected && "text-brand-700 dark:text-brand-200",
+                      )}
+                      onClick={() => pickAgent(option.id)}
+                    >
+                      <span
+                        className="min-w-0 flex-1 truncate"
+                        dir={textDirOf(option.name)}
+                      >
+                        {option.name}
+                      </span>
+                      {selected ? (
+                        <Check
+                          className="h-4 w-4 shrink-0"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : null}
         </div>
 
         <div
@@ -122,7 +244,7 @@ export function ConversationList({
                 className={cn(
                   "flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition",
                   filter === value
-                    ? "bg-white text-ink-900 shadow-sm dark:bg-ink-700 dark:text-ink-50"
+                    ? "bg-white text-brand-700 shadow-sm dark:bg-ink-700 dark:text-brand-100"
                     : "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100",
                 )}
               >
@@ -131,21 +253,21 @@ export function ConversationList({
             ))}
         </div>
 
-        {/* Admin/superadmin only — narrows the "All"/"Agent" tabs to one agent's chats. */}
-        {agents.length > 0 && onAgentFilterChange ? (
-          <select
-            value={agentFilter}
-            onChange={(event) => onAgentFilterChange(event.target.value)}
-            aria-label={t("inbox.filterByAgent")}
-            className="input py-1.5 text-base"
-          >
-            <option value="all">{t("inbox.allAgents")}</option>
-            {agents.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.displayName || user.username}
-              </option>
-            ))}
-          </select>
+        {selectedAgentName ? (
+          <span className="inline-flex h-6 max-w-full items-center gap-1 rounded-full bg-brand-50 pe-1 ps-2.5 text-xs font-medium text-brand-700 dark:bg-brand-900/40 dark:text-brand-100">
+            <span className="truncate">
+              {t("inbox.agentChip", { name: selectedAgentName })}
+            </span>
+            <button
+              type="button"
+              onClick={() => onAgentFilterChange?.("all")}
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full hover:bg-brand-100 dark:hover:bg-brand-800"
+              aria-label={t("inbox.clearAgentFilter")}
+              title={t("inbox.clearAgentFilter")}
+            >
+              <X className="h-3 w-3" aria-hidden="true" />
+            </button>
+          </span>
         ) : null}
       </div>
 
@@ -172,8 +294,7 @@ export function ConversationList({
             {conversations.map((conversation) => {
               const active = conversation.id === activeId;
 
-              const name =
-                conversation.customerName?.trim() || conversation.phone;
+              const name = contactNameWithCountry(conversation);
 
               const mine =
                 conversation.assigneeId &&
@@ -202,7 +323,7 @@ export function ConversationList({
                   >
                     <Avatar
                       name={conversation.customerName}
-                      seed={conversation.phone}
+                      seed={conversation.id}
                     />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline justify-between gap-2">
@@ -217,7 +338,7 @@ export function ConversationList({
                         </span>
                         {conversation.lastMessageAt ? (
                           <span className="shrink-0 text-[11px] text-ink-400">
-                            {formatRelative(conversation.lastMessageAt)}
+                            {formatRelative(conversation.lastMessageAt, now)}
                           </span>
                         ) : null}
                       </span>
@@ -231,7 +352,8 @@ export function ConversationList({
                               : "text-ink-500 dark:text-ink-400",
                           )}
                         >
-                          {conversation.preview ?? conversation.phone}
+                          {conversation.preview ??
+                            contactIdentifier(conversation)}
                         </span>
                         {unread > 0 ? (
                           <span

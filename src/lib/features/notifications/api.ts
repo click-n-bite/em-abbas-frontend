@@ -3,7 +3,7 @@ import type { AppNotification } from "@/lib/types";
 import type { Mode } from "@/lib/features/conversations/types";
 
 interface RawNotificationPayload {
-  phone?: string;
+  phone?: string | null;
   customerName?: string;
   serviceName?: string;
   conversationId?: string;
@@ -40,6 +40,24 @@ const toAppNotification = (raw: RawNotification): AppNotification => ({
     null,
   leadId: raw.payload?.leadId ?? null,
   phone: raw.payload?.phone ?? null,
+  channel:
+    typeof raw.payload?.channel === "string" ? raw.payload.channel : undefined,
+  connectionId:
+    typeof raw.payload?.connectionId === "string"
+      ? raw.payload.connectionId
+      : undefined,
+  externalUserId:
+    typeof raw.payload?.externalUserId === "string"
+      ? raw.payload.externalUserId
+      : undefined,
+  externalUserType:
+    typeof raw.payload?.externalUserType === "string"
+      ? raw.payload.externalUserType
+      : undefined,
+  whatsappUserId:
+    typeof raw.payload?.whatsappUserId === "string"
+      ? raw.payload.whatsappUserId
+      : undefined,
   customerName: raw.payload?.customerName ?? null,
   serviceName: raw.payload?.serviceName ?? null,
   mode: raw.payload?.mode ?? null,

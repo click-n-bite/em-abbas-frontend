@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
+import { contactIdentifier } from "@/lib/channel-identity";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -11,8 +12,6 @@ import {
   Shield,
   Search,
   RefreshCw,
-  ChevronLeft,
-  ChevronRight,
   ChevronDown,
   ChevronUp,
   Copy,
@@ -23,7 +22,9 @@ import {
 import { useI18n } from "@/providers/i18n-provider";
 import { useToast } from "@/providers/toast-provider";
 import { AppShell } from "@/components/layout/app-shell";
+import { CountBadge } from "@/components/ui/count-badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PaginationFooter } from "@/components/ui/pagination-footer";
 import { Select } from "@/components/ui/select";
 import {
   SortControl,
@@ -46,6 +47,8 @@ const EVENT_ICONS: Record<ActivityEventType, React.ReactNode> = {
   "agent.took_over": <User className="h-4 w-4" />,
   handed_to_ai: <Bot className="h-4 w-4" />,
   "number.blocked": <Shield className="h-4 w-4" />,
+  "identity.blocked": <Shield className="h-4 w-4" />,
+  "identity.unblocked": <Shield className="h-4 w-4" />,
   "number.unblocked": <Shield className="h-4 w-4" />,
   "conversation.hidden": <Activity className="h-4 w-4" />,
   "conversation.unhidden": <Activity className="h-4 w-4" />,
@@ -88,6 +91,8 @@ const EVENT_LABELS: Record<ActivityEventType, string> = {
   "agent.took_over": "activity.events.agent.took_over",
   handed_to_ai: "activity.events.handed_to_ai",
   "number.blocked": "activity.events.number.blocked",
+  "identity.blocked": "activity.events.identity.blocked",
+  "identity.unblocked": "activity.events.identity.unblocked",
   "number.unblocked": "activity.events.number.unblocked",
   "conversation.hidden": "activity.events.conversation.hidden",
   "conversation.unhidden": "activity.events.conversation.unhidden",
@@ -95,7 +100,9 @@ const EVENT_LABELS: Record<ActivityEventType, string> = {
   "conversation.renamed": "activity.events.conversation.renamed",
 };
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
+const DEFAULT_PAGE_SIZE = 25;
 
 type DateRangeFilter = "today" | "7d" | "30d" | "all";
 
@@ -265,6 +272,8 @@ export default function ActivityPage() {
 
   const [page, setPage] = useState(0);
 
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+
   const [sort, setSort] = useState<LogSort>(DEFAULT_SORT);
 
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -282,7 +291,7 @@ export default function ActivityPage() {
               conv.id,
               {
                 name: conv.customerName?.trim() ?? "",
-                phone: conv.phone ?? "",
+                phone: contactIdentifier(conv),
               },
             ]),
           ),
@@ -366,9 +375,9 @@ export default function ActivityPage() {
 
     setTotal(filtered.length);
 
-    const start = page * PAGE_SIZE;
+    const start = page * pageSize;
 
-    const end = start + PAGE_SIZE;
+    const end = start + pageSize;
 
     setFilteredEvents(filtered.slice(start, end));
   }, [
@@ -377,6 +386,7 @@ export default function ActivityPage() {
     actorFilter,
     dateRangeFilter,
     page,
+    pageSize,
     activities,
     conversationLabels,
     sort,
@@ -472,12 +482,6 @@ export default function ActivityPage() {
     [activities],
   );
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
-  const rangeStart = total === 0 ? 0 : page * PAGE_SIZE + 1;
-
-  const rangeEnd = Math.min((page + 1) * PAGE_SIZE, total);
-
   const activeFilterCount =
     Number(eventTypeFilter !== "all") +
     Number(actorFilter !== "all") +
@@ -485,7 +489,12 @@ export default function ActivityPage() {
 
   return (
     <AppShell
-      title={t("activity.title")}
+      title={
+        <>
+          {t("activity.title")}
+          {!loading ? <CountBadge count={total} /> : null}
+        </>
+      }
       subtitle={t("activity.subtitle")}
       actions={
         <div className="flex items-center gap-2">
@@ -508,8 +517,8 @@ export default function ActivityPage() {
         </div>
       }
     >
-      <section className="card overflow-hidden">
-        <header className="flex flex-wrap items-center gap-2 border-b border-ink-200 px-4 py-3 dark:border-ink-700">
+      <section className="card flex h-[calc(100dvh-8.5rem)] min-h-[28rem] flex-col overflow-hidden lg:h-full lg:min-h-[24rem]">
+        <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-ink-200 px-4 py-3 dark:border-ink-700">
           <div className="relative min-w-0 flex-1 md:basis-full xl:basis-0">
             <Search
               className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-ink-400"
@@ -610,21 +619,7 @@ export default function ActivityPage() {
             </div>
           </div>
         </header>
-        {/* Result count strip */}
-        <div className="flex items-center justify-between border-b border-ink-200 bg-ink-50/50 px-5 py-2.5 text-xs text-ink-500 dark:border-ink-700 dark:bg-ink-800/30 dark:text-ink-400">
-          <span className="font-medium text-ink-700 dark:text-ink-200">
-            {t("activity.eventsCount", { count: total })}
-          </span>
-          <span>
-            {t("activity.showingRange", {
-              start: rangeStart,
-              end: rangeEnd,
-              total,
-            })}
-          </span>
-        </div>
-
-        <div className="border-b border-ink-200 px-4 py-2 dark:border-ink-700 sm:hidden">
+        <div className="shrink-0 border-b border-ink-200 px-4 py-2 dark:border-ink-700 sm:hidden">
           <SortControl
             sort={sort}
             onChange={changeSort}
@@ -636,258 +631,245 @@ export default function ActivityPage() {
           />
         </div>
 
-        <div
-          role="row"
-          className="hidden border-b border-ink-200 bg-ink-50/50 px-5 py-2.5 dark:border-ink-700 dark:bg-ink-800/30 sm:grid sm:grid-cols-12"
-        >
-          <SortableColumnHeader
-            field="eventType"
-            label={t(SORT_LABEL_KEYS.eventType)}
-            sort={sort}
-            onSort={onHeaderSort}
-            className="col-span-3 text-center text-xs font-medium text-ink-500 dark:text-ink-400"
-          />
-          <SortableColumnHeader
-            field="actorName"
-            label={t(SORT_LABEL_KEYS.actorName)}
-            sort={sort}
-            onSort={onHeaderSort}
-            className="col-span-2 text-center text-xs font-medium text-ink-500 dark:text-ink-400"
-          />
-          <SortableColumnHeader
-            field="conversation"
-            label={t(SORT_LABEL_KEYS.conversation)}
-            sort={sort}
-            onSort={onHeaderSort}
-            className="col-span-2 text-center text-xs font-medium text-ink-500 dark:text-ink-400"
-          />
-          <SortableColumnHeader
-            field="occurredAt"
-            label={t(SORT_LABEL_KEYS.occurredAt)}
-            sort={sort}
-            onSort={onHeaderSort}
-            className="col-span-2 text-center text-xs font-medium text-ink-500 dark:text-ink-400"
-          />
-          <div className="col-span-3 text-center text-xs font-medium text-ink-500 dark:text-ink-400">
-            {t("activity.colActions")}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div
+            role="row"
+            className="sticky top-0 z-10 hidden border-b border-ink-200 bg-ink-50 px-5 py-2.5 dark:border-ink-700 dark:bg-ink-800 sm:grid sm:grid-cols-12 sm:items-center sm:gap-4"
+          >
+            <SortableColumnHeader
+              field="eventType"
+              label={t(SORT_LABEL_KEYS.eventType)}
+              sort={sort}
+              onSort={onHeaderSort}
+              className="col-span-3 -ms-1 text-start text-xs font-medium text-ink-500 dark:text-ink-400"
+            />
+            <SortableColumnHeader
+              field="actorName"
+              label={t(SORT_LABEL_KEYS.actorName)}
+              sort={sort}
+              onSort={onHeaderSort}
+              className="col-span-2 -ms-1 text-start text-xs font-medium text-ink-500 dark:text-ink-400"
+            />
+            <SortableColumnHeader
+              field="conversation"
+              label={t(SORT_LABEL_KEYS.conversation)}
+              sort={sort}
+              onSort={onHeaderSort}
+              className="col-span-2 -ms-1 text-start text-xs font-medium text-ink-500 dark:text-ink-400"
+            />
+            <SortableColumnHeader
+              field="occurredAt"
+              label={t(SORT_LABEL_KEYS.occurredAt)}
+              sort={sort}
+              onSort={onHeaderSort}
+              className="col-span-2 -ms-1 text-start text-xs font-medium text-ink-500 dark:text-ink-400"
+            />
+            <div className="col-span-3 text-end text-xs font-medium text-ink-500 dark:text-ink-400">
+              {t("activity.colActions")}
+            </div>
           </div>
-        </div>
 
-        {loading && filteredEvents.length === 0 ? (
-          <ul className="space-y-3 p-5">
-            {[0, 1, 2, 3].map((index) => (
-              <li key={index} className="skeleton h-16 w-full" />
-            ))}
-          </ul>
-        ) : filteredEvents.length === 0 ? (
-          <EmptyState
-            icon={<Activity className="h-5 w-5" aria-hidden="true" />}
-            title={t("activity.empty")}
-          />
-        ) : (
-          <ul className="divide-y divide-ink-100 dark:divide-ink-700/70">
-            {filteredEvents.map((event) => {
-              const isExpanded = expandedDetails.has(String(event.id));
+          {loading && filteredEvents.length === 0 ? (
+            <ul className="space-y-3 p-5">
+              {[0, 1, 2, 3].map((index) => (
+                <li key={index} className="skeleton h-16 w-full" />
+              ))}
+            </ul>
+          ) : filteredEvents.length === 0 ? (
+            <EmptyState
+              icon={<Activity className="h-5 w-5" aria-hidden="true" />}
+              title={t("activity.empty")}
+            />
+          ) : (
+            <ul className="divide-y divide-ink-100 dark:divide-ink-700/70">
+              {filteredEvents.map((event) => {
+                const isExpanded = expandedDetails.has(String(event.id));
 
-              const hasPayload =
-                event.payload && Object.keys(event.payload).length > 0;
+                const hasPayload =
+                  event.payload && Object.keys(event.payload).length > 0;
 
-              const customerLabel = customerDisplayOf(event.conversationId);
+                const customerLabel = customerDisplayOf(event.conversationId);
 
-              const wasCopied = copiedId === event.conversationId;
+                const wasCopied = copiedId === event.conversationId;
 
-              return (
-                <li
-                  key={event.id}
-                  className="flex flex-col px-5 py-4 transition-colors hover:bg-ink-50/50 dark:hover:bg-ink-700/30"
-                >
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-center sm:gap-4">
-                    {/* Event */}
-                    <div className="flex items-start gap-3 sm:col-span-3">
-                      <div
-                        className={cn(
-                          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                          getEventColor(event.eventType),
-                        )}
-                      >
-                        {getEventIcon(event.eventType)}
+                return (
+                  <li
+                    key={event.id}
+                    className="flex flex-col px-5 py-4 transition-colors hover:bg-ink-50/50 dark:hover:bg-ink-700/30"
+                  >
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-center sm:gap-4">
+                      {/* Event */}
+                      <div className="flex items-start gap-3 sm:col-span-3">
+                        <div
+                          className={cn(
+                            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                            getEventColor(event.eventType),
+                          )}
+                        >
+                          {getEventIcon(event.eventType)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-ink-900 dark:text-ink-50">
+                            {t(
+                              EVENT_LABELS[event.eventType] || event.eventType,
+                            )}
+                          </p>
+                          <p className="truncate text-xs text-ink-500 dark:text-ink-400">
+                            {event.summary}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-ink-900 dark:text-ink-50">
-                          {t(EVENT_LABELS[event.eventType] || event.eventType)}
-                        </p>
-                        <p className="truncate text-xs text-ink-500 dark:text-ink-400">
-                          {event.summary}
-                        </p>
+
+                      {/* Actor */}
+                      <div className="flex items-center gap-2 sm:col-span-2">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-100 text-ink-500 dark:bg-ink-700 dark:text-ink-300">
+                          {getActorIcon(event.actorType)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-ink-900 dark:text-ink-50">
+                            {event.actorName || t("activity.unknownActor")}
+                          </p>
+                          <p className="text-xs capitalize text-ink-400 dark:text-ink-500">
+                            {t(
+                              `activity.actor${event.actorType.charAt(0).toUpperCase()}${event.actorType.slice(1)}` as any,
+                            ) || event.actorType}
+                          </p>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Actor */}
-                    <div className="flex items-center gap-2 sm:col-span-2">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-100 text-ink-500 dark:bg-ink-700 dark:text-ink-300">
-                        {getActorIcon(event.actorType)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-ink-900 dark:text-ink-50">
-                          {event.actorName || t("activity.unknownActor")}
-                        </p>
-                        <p className="text-xs capitalize text-ink-400 dark:text-ink-500">
-                          {t(
-                            `activity.actor${event.actorType.charAt(0).toUpperCase()}${event.actorType.slice(1)}` as any,
-                          ) || event.actorType}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Conversation */}
-                    <div className="flex min-w-0 items-center gap-1.5 sm:col-span-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleConversationClick(event.conversationId)
-                        }
-                        className="min-w-0 truncate text-start text-sm text-brand-600 hover:underline dark:text-brand-300"
-                        dir="auto"
-                        title={customerLabel || event.conversationId}
-                      >
-                        {customerLabel || shortId(event.conversationId)}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => handleCopyId(e, event.conversationId)}
-                        className="shrink-0 rounded p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-600 dark:hover:bg-ink-700"
-                        aria-label={t("common.copy")}
-                        title={
-                          wasCopied ? t("common.copied") : t("common.copy")
-                        }
-                      >
-                        {wasCopied ? (
-                          <Check
-                            className="h-3.5 w-3.5 text-emerald-500"
-                            aria-hidden="true"
-                          />
-                        ) : (
-                          <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Date */}
-                    <div className="sm:col-span-2">
-                      <p className="text-sm text-ink-700 dark:text-ink-300">
-                        {formatDateTime(event.occurredAt)}
-                      </p>
-                      <p className="text-xs text-ink-400 dark:text-ink-500">
-                        {relativeTime(event.occurredAt)}
-                      </p>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 sm:col-span-3 sm:justify-end">
-                      {hasPayload && (
+                      {/* Conversation */}
+                      <div className="flex min-w-0 items-center gap-1.5 sm:col-span-2">
                         <button
                           type="button"
-                          onClick={() => toggleDetails(String(event.id))}
-                          className="btn-ghost px-2 py-1.5 text-xs"
-                          aria-label={
-                            isExpanded
-                              ? t("activity.hideDetails")
-                              : t("activity.showDetails")
+                          onClick={() =>
+                            handleConversationClick(event.conversationId)
+                          }
+                          className="min-w-0 truncate text-start text-sm text-brand-600 hover:underline dark:text-brand-300"
+                          dir="auto"
+                          title={customerLabel || event.conversationId}
+                        >
+                          {customerLabel || shortId(event.conversationId)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleCopyId(e, event.conversationId)}
+                          className="shrink-0 rounded p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-600 dark:hover:bg-ink-700"
+                          aria-label={t("common.copy")}
+                          title={
+                            wasCopied ? t("common.copied") : t("common.copy")
                           }
                         >
-                          {isExpanded ? (
-                            <ChevronUp
-                              className="h-3.5 w-3.5"
+                          {wasCopied ? (
+                            <Check
+                              className="h-3.5 w-3.5 text-emerald-500"
                               aria-hidden="true"
                             />
                           ) : (
-                            <ChevronDown
-                              className="h-3.5 w-3.5"
-                              aria-hidden="true"
-                            />
+                            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                           )}
-                          <span>
-                            {isExpanded
-                              ? t("activity.hideDetails")
-                              : t("activity.showDetails")}
-                          </span>
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleConversationClick(event.conversationId)
-                        }
-                        className="btn-secondary px-3 py-1.5 text-xs"
-                      >
-                        {t("activity.viewConversation")}
-                        <ArrowRight
-                          className="h-3.5 w-3.5 rtl:rotate-180"
-                          aria-hidden="true"
-                        />
-                      </button>
-                    </div>
-                  </div>
+                      </div>
 
-                  {isExpanded && hasPayload && (
-                    <div className="mt-3 rounded-lg border border-ink-200 bg-ink-50/50 p-3 dark:border-ink-700 dark:bg-ink-800/30 sm:ms-[3.25rem]">
-                      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        {Object.entries(
-                          event.payload as Record<string, unknown>,
-                        ).map(([key, value]) => (
-                          <div key={key} className="min-w-0">
-                            <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-400 dark:text-ink-500">
-                              {key}
-                            </dt>
-                            <dd
-                              className="truncate text-sm text-ink-700 dark:text-ink-300"
-                              title={String(value)}
-                            >
-                              {typeof value === "object"
-                                ? JSON.stringify(value)
-                                : String(value)}
-                            </dd>
-                          </div>
-                        ))}
-                      </dl>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                      {/* Date */}
+                      <div className="sm:col-span-2">
+                        <p className="text-sm text-ink-700 dark:text-ink-300">
+                          {formatDateTime(event.occurredAt)}
+                        </p>
+                        <p className="text-xs text-ink-400 dark:text-ink-500">
+                          {relativeTime(event.occurredAt)}
+                        </p>
+                      </div>
 
-        {totalPages > 1 ? (
-          <div className="flex items-center justify-center gap-3 border-t border-ink-200 px-5 py-3 dark:border-ink-700">
-            <button
-              type="button"
-              className="btn-ghost px-2.5"
-              disabled={page === 0}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              aria-label={t("common.previous")}
-            >
-              <ChevronLeft
-                className="h-4 w-4 rtl:rotate-180"
-                aria-hidden="true"
-              />
-            </button>
-            <span className="text-xs text-ink-500 dark:text-ink-400">
-              {t("activity.page", { page: page + 1, total: totalPages })}
-            </span>
-            <button
-              type="button"
-              className="btn-ghost px-2.5"
-              disabled={page + 1 >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-              aria-label={t("common.next")}
-            >
-              <ChevronRight
-                className="h-4 w-4 rtl:rotate-180"
-                aria-hidden="true"
-              />
-            </button>
-          </div>
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 sm:col-span-3 sm:justify-end">
+                        {hasPayload && (
+                          <button
+                            type="button"
+                            onClick={() => toggleDetails(String(event.id))}
+                            className="btn-ghost px-2 py-1.5 text-xs"
+                            aria-label={
+                              isExpanded
+                                ? t("activity.hideDetails")
+                                : t("activity.showDetails")
+                            }
+                          >
+                            {isExpanded ? (
+                              <ChevronUp
+                                className="h-3.5 w-3.5"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <ChevronDown
+                                className="h-3.5 w-3.5"
+                                aria-hidden="true"
+                              />
+                            )}
+                            <span>
+                              {isExpanded
+                                ? t("activity.hideDetails")
+                                : t("activity.showDetails")}
+                            </span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleConversationClick(event.conversationId)
+                          }
+                          className="btn-secondary px-3 py-1.5 text-xs"
+                        >
+                          {t("activity.viewConversation")}
+                          <ArrowRight
+                            className="h-3.5 w-3.5 rtl:rotate-180"
+                            aria-hidden="true"
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    {isExpanded && hasPayload && (
+                      <div className="mt-3 rounded-lg border border-ink-200 bg-ink-50/50 p-3 dark:border-ink-700 dark:bg-ink-800/30 sm:ms-[3.25rem]">
+                        <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                          {Object.entries(
+                            event.payload as Record<string, unknown>,
+                          ).map(([key, value]) => (
+                            <div key={key} className="min-w-0">
+                              <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-400 dark:text-ink-500">
+                                {key}
+                              </dt>
+                              <dd
+                                className="truncate text-sm text-ink-700 dark:text-ink-300"
+                                title={String(value)}
+                              >
+                                {typeof value === "object"
+                                  ? JSON.stringify(value)
+                                  : String(value)}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        {total > 0 ? (
+          <PaginationFooter
+            page={page}
+            pageSize={pageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            total={total}
+            ariaLabel={t("activity.title")}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(0);
+            }}
+          />
         ) : null}
       </section>
     </AppShell>

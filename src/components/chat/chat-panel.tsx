@@ -1,6 +1,11 @@
 "use client";
 
 import {
+  contactIdentifier,
+  contactName,
+  contactNameWithCountry,
+} from "@/lib/channel-identity";
+import {
   Fragment,
   useCallback,
   useEffect,
@@ -48,6 +53,8 @@ import {
   X,
 } from "lucide-react";
 import { adminApi, api, ApiError } from "@/lib/api";
+import { countryName, phoneCountryOf } from "@/lib/countries";
+import { CountryFlag } from "@/components/ui/country-flag";
 import { errorDetail, errorKey } from "@/lib/errors";
 import { cn, colorFromString, textDirOf, uuid } from "@/lib/utils";
 import { useI18n } from "@/providers/i18n-provider";
@@ -72,6 +79,7 @@ import {
   voiceFileFromChunks,
 } from "@/lib/voice-recording";
 import { WhatsAppAudioPlayer } from "./audio-player";
+import { useRouter } from "next/navigation";
 
 interface Props {
   conversation: Conversation | null;
@@ -1115,9 +1123,27 @@ export function ChatPanel({
   onBack,
   onToggleHide,
 }: Props) {
-  const { t, dir } = useI18n();
+  const { t, dir, locale } = useI18n();
 
-  const { agent, role, canManageUsers } = useAuth();
+  const phoneCountry = useMemo(() => {
+    const country = phoneCountryOf(conversation?.phone);
+
+    return country
+      ? { code: country, name: countryName(country, locale) }
+      : null;
+  }, [conversation?.phone, locale]);
+
+  const router = useRouter();
+
+  const openLeads = () => {
+    const params = new URLSearchParams(window.location.search);
+
+    const leadsUrl = params.get("leadsReturnTo");
+
+    router.push(leadsUrl?.startsWith("/leads") ? leadsUrl : "/leads");
+  };
+
+  const { agent, role, canManageUsers, canManageBlockedNumbers } = useAuth();
 
   const canChangeMode = role === "agent";
 
@@ -1549,13 +1575,25 @@ export function ChatPanel({
         // Follows the message only when the agent is at the bottom.
         handleArrivals(added);
 
-        if (message.direction === "inbound") {
-          if ((current.unreadCount ?? 0) !== 0) {
-            onConversationChangeRef.current({ ...current, unreadCount: 0 });
-          }
+        const receivedAt =
+          message.createdAt && !Number.isNaN(Date.parse(message.createdAt))
+            ? message.createdAt
+            : null;
 
-          scheduleMarkRead(current.id);
-        }
+        onConversationChangeRef.current({
+          ...current,
+          ...(message.text?.trim() ? { preview: message.text } : {}),
+          ...(receivedAt ? { lastMessageAt: receivedAt } : {}),
+          ...(message.direction
+            ? { lastMessageDirection: message.direction }
+            : {}),
+          ...(message.id ? { lastMessageId: message.id } : {}),
+          ...(message.direction === "inbound" ? { unreadCount: 0 } : {}),
+        });
+
+        if (!receivedAt) scheduleCatchUp(current.id);
+
+        if (message.direction === "inbound") scheduleMarkRead(current.id);
 
         return;
       }
@@ -1649,6 +1687,16 @@ export function ChatPanel({
         onConversationChangeRef.current({
           ...current,
           blocked: Boolean(event.blocked),
+          ...(typeof event.identityBlocked === "boolean"
+            ? {
+                identityBlocked: event.identityBlocked,
+                identityBlockSource:
+                  event.identityBlockSource as Conversation["identityBlockSource"],
+                identityBlockExpiresAt: event.identityBlockExpiresAt as
+                  | string
+                  | null,
+              }
+            : {}),
           whatsappStatus:
             (event.whatsappStatus as Conversation["whatsappStatus"]) ?? null,
         });
@@ -1731,7 +1779,11 @@ export function ChatPanel({
     conversation == null
       ? null
       : blocked
-        ? t("chat.inputLockedBlocked")
+        ? t(
+            conversation.identityBlocked
+              ? "identity.localBlockHint"
+              : "chat.inputLockedBlocked",
+          )
         : conversation.mode !== "agent"
           ? t("chat.inputLockedBot")
           : !mine
@@ -2359,7 +2411,7 @@ export function ChatPanel({
     phone: string;
     reason?: string | null;
   }) => {
-    if (!conversation) return;
+    if (!conversation || !canManageBlockedNumbers) return;
 
     try {
       await adminApi.blockNumber({ phone, reason });
@@ -2376,19 +2428,41 @@ export function ChatPanel({
     }
   };
 
+  const submitIdentityBlock = async () => {
+    if (!conversation || !canManageUsers) return;
+
+    try {
+      onConversationChange(
+        await api.setConversationIdentityBlock(conversation.id, true),
+      );
+      push(t("identity.localBlocked"), "success");
+    } catch (error) {
+      push(errorDetail(error) ?? t(errorKey(error)), "error");
+    }
+  };
+
   const handleUnblock = async () => {
-    if (!conversation || !blockedEntryId || unblocking) return;
+    if (
+      !conversation ||
+      (!conversation.identityBlocked && !blockedEntryId) ||
+      (conversation.identityBlocked && !canManageUsers) ||
+      unblocking ||
+      !canManageBlockedNumbers
+    )
+      return;
 
     setUnblocking(true);
 
     try {
-      await adminApi.unblockNumber(blockedEntryId);
+      if (conversation.identityBlocked) {
+        onConversationChange(
+          await api.setConversationIdentityBlock(conversation.id, false),
+        );
+      } else {
+        await adminApi.unblockNumber(blockedEntryId!);
+        onConversationChange(await api.conversation(conversation.id));
+      }
 
-      onConversationChange({
-        ...conversation,
-        blocked: false,
-        whatsappStatus: "unblocked",
-      });
       setBlockedEntryId(null);
       push(t("chat.contactUnblocked"), "success");
     } catch (error) {
@@ -2537,14 +2611,14 @@ export function ChatPanel({
               )}
             </button>
           ) : null}
-          <Avatar name={conversation.customerName} seed={conversation.phone} />
+          <Avatar name={conversation.customerName} seed={conversation.id} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <p
                 dir={textDirOf(conversation.customerName)}
                 className="truncate text-sm font-semibold text-ink-900 dark:text-ink-50"
               >
-                {conversation.customerName?.trim() || conversation.phone}
+                {contactNameWithCountry(conversation)}
               </p>
               <button
                 type="button"
@@ -2557,10 +2631,18 @@ export function ChatPanel({
               </button>
             </div>
             <p
-              className="truncate text-xs text-ink-500 dark:text-ink-400"
+              className="flex min-w-0 items-center gap-1 truncate text-xs text-ink-500 dark:text-ink-400"
               dir="ltr"
             >
-              {conversation.phone}
+              {phoneCountry ? (
+                <span className="shrink-0" title={phoneCountry.name}>
+                  <CountryFlag code={phoneCountry.code} />
+                </span>
+              ) : null}
+              <span className="truncate">
+                {!conversation.phone ? `${t("identity.whatsappId")}: ` : ""}
+                <bdi>{contactIdentifier(conversation)}</bdi>
+              </span>
             </p>
           </div>
         </div>
@@ -2571,16 +2653,22 @@ export function ChatPanel({
           {blocked ? (
             <span
               className="badge bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-200"
-              title={t("chat.blockedBadgeHint")}
+              title={t(
+                conversation.identityBlocked
+                  ? "identity.localBlockHint"
+                  : "chat.blockedBadgeHint",
+              )}
             >
               <ShieldOff className="h-3 w-3" aria-hidden="true" />
               {t(
-                conversation.whatsappStatus === "blocked"
-                  ? "chat.blockedBadge"
-                  : conversation.whatsappStatus === "failed" ||
-                      conversation.whatsappStatus === "unblocked"
-                    ? "chat.blockedBadgeLocalOnly"
-                    : "chat.blockedBadgePending",
+                conversation.identityBlocked
+                  ? "identity.localBlocked"
+                  : conversation.whatsappStatus === "blocked"
+                    ? "chat.blockedBadge"
+                    : conversation.whatsappStatus === "failed" ||
+                        conversation.whatsappStatus === "unblocked"
+                      ? "chat.blockedBadgeLocalOnly"
+                      : "chat.blockedBadgePending",
               )}
             </span>
           ) : null}
@@ -2661,7 +2749,7 @@ export function ChatPanel({
             <span className="hidden lg:inline">{t("chat.addLead")}</span>
           </button>
 
-          {canManageUsers ? (
+          {canManageBlockedNumbers || canManageUsers ? (
             <div ref={menuRef} className="relative">
               <button
                 type="button"
@@ -2683,7 +2771,14 @@ export function ChatPanel({
                   <button
                     type="button"
                     role="menuitem"
-                    disabled={blocked}
+                    disabled={
+                      blocked || (!conversation.phone && !canManageUsers)
+                    }
+                    title={
+                      !conversation.phone && !canManageUsers
+                        ? t("identity.adminOnly")
+                        : undefined
+                    }
                     onClick={() => {
                       setBlockModalOpen(true);
                       setMenuOpen(false);
@@ -2696,39 +2791,43 @@ export function ChatPanel({
                       : t("chat.blockContact")}
                   </button>
 
-                  <button
-                    type="button"
-                    role="menuitem"
-                    disabled={hideBusy}
-                    onClick={() => void handleToggleHide()}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-start text-sm text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-ink-200 dark:hover:bg-ink-700"
-                  >
-                    {hideBusy ? (
-                      <Spinner />
-                    ) : conversation.hidden ? (
-                      <Eye className="h-4 w-4" aria-hidden="true" />
-                    ) : (
-                      <EyeOff className="h-4 w-4" aria-hidden="true" />
-                    )}
-                    {t(
-                      conversation.hidden
-                        ? "chat.unhideConversation"
-                        : "chat.hideConversation",
-                    )}
-                  </button>
+                  {canManageUsers ? (
+                    <>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={hideBusy}
+                        onClick={() => void handleToggleHide()}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-start text-sm text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-ink-200 dark:hover:bg-ink-700"
+                      >
+                        {hideBusy ? (
+                          <Spinner />
+                        ) : conversation.hidden ? (
+                          <Eye className="h-4 w-4" aria-hidden="true" />
+                        ) : (
+                          <EyeOff className="h-4 w-4" aria-hidden="true" />
+                        )}
+                        {t(
+                          conversation.hidden
+                            ? "chat.unhideConversation"
+                            : "chat.hideConversation",
+                        )}
+                      </button>
 
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setPendingClear(true);
-                      setMenuOpen(false);
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-start text-sm text-ink-700 transition hover:bg-ink-50 dark:text-ink-200 dark:hover:bg-ink-700"
-                  >
-                    <Eraser className="h-4 w-4" aria-hidden="true" />
-                    {t("chat.clearMessages")}
-                  </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setPendingClear(true);
+                          setMenuOpen(false);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-start text-sm text-ink-700 transition hover:bg-ink-50 dark:text-ink-200 dark:hover:bg-ink-700"
+                      >
+                        <Eraser className="h-4 w-4" aria-hidden="true" />
+                        {t("chat.clearMessages")}
+                      </button>
+                    </>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -2789,6 +2888,17 @@ export function ChatPanel({
             {t("chat.tabActivity")}
           </button>
         ) : null}
+
+        <button
+          type="button"
+          onClick={openLeads}
+          aria-label={t("leads.title")}
+          title={t("leads.title")}
+          className="ms-auto mb-1 flex items-center gap-1.5 rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-medium text-ink-600 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 dark:border-ink-600 dark:text-ink-300 dark:hover:border-brand-700 dark:hover:bg-brand-900/30 dark:hover:text-brand-300"
+        >
+          <ListChecks className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>{t("leads.title")}</span>
+        </button>
       </div>
 
       {searchOpen && activeTab === "messages" ? (
@@ -3175,7 +3285,17 @@ export function ChatPanel({
               <button
                 type="button"
                 onClick={() => void handleUnblock()}
-                disabled={unblocking || !blockedEntryId}
+                disabled={
+                  unblocking ||
+                  (conversation.identityBlocked
+                    ? !canManageUsers
+                    : !blockedEntryId)
+                }
+                title={
+                  conversation.identityBlocked && !canManageUsers
+                    ? t("identity.adminOnly")
+                    : undefined
+                }
                 className="btn-ghost h-7 flex-shrink-0 px-2.5 py-0 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-rose-200 dark:hover:bg-rose-900"
               >
                 {unblocking ? (
@@ -3183,7 +3303,13 @@ export function ChatPanel({
                 ) : (
                   <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
-                {unblocking ? t("chat.unblocking") : t("chat.unblockContact")}
+                {unblocking
+                  ? t("chat.unblocking")
+                  : t(
+                      conversation.identityBlocked
+                        ? "identity.removeLocalBlock"
+                        : "chat.unblockContact",
+                    )}
               </button>
             </div>
           ) : lockedReason ? (
@@ -3318,8 +3444,17 @@ export function ChatPanel({
         </footer>
       ) : null}
 
+      <ConfirmDialog
+        open={blockModalOpen && !conversation.phone}
+        title={t("identity.localBlockTitle")}
+        body={t("identity.localBlockBody")}
+        confirmLabel={t("chat.blockContact")}
+        onConfirm={submitIdentityBlock}
+        onClose={() => setBlockModalOpen(false)}
+      />
+
       <BlockNumberFormModal
-        open={blockModalOpen}
+        open={blockModalOpen && Boolean(conversation.phone)}
         initialPhone={conversation.phone}
         onClose={() => setBlockModalOpen(false)}
         onSubmit={submitBlock}
@@ -3331,7 +3466,7 @@ export function ChatPanel({
         onSubmit={submitLead}
         fixedConversation={{
           id: conversation.id,
-          label: conversation.customerName?.trim() || conversation.phone,
+          label: contactName(conversation),
         }}
       />
 

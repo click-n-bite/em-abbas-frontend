@@ -6,7 +6,7 @@ import { Topbar } from "./topbar";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  title: string;
+  title: ReactNode;
   subtitle?: string;
   actions?: ReactNode;
   children: ReactNode;

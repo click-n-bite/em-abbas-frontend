@@ -7,15 +7,21 @@ import { Download, RefreshCw } from "lucide-react";
 import { adminApi, api } from "@/lib/api";
 import { errorKey } from "@/lib/errors";
 import { exportContactsToCsv } from "@/lib/export";
+import { usePoll } from "@/hooks/use-poll";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useAuth } from "@/providers/auth-provider";
 import { useI18n } from "@/providers/i18n-provider";
 import { AppShell } from "@/components/layout/app-shell";
 import { ChatPanel } from "@/components/chat/chat-panel";
+import { CountBadge } from "@/components/ui/count-badge";
 import {
   ConversationList,
   type InboxFilter,
 } from "@/components/chat/conversation-list";
+import {
+  contactSearchText,
+  reconcileConversationBlock,
+} from "@/lib/channel-identity";
 import { cn } from "@/lib/utils";
 import type {
   BlockedWhatsappNumber,
@@ -38,38 +44,17 @@ function sortByRecent(list: Conversation[]): Conversation[] {
 
 function reconcileBlocked(
   list: Conversation[],
-  previous: Conversation[],
   blockedByPhone: Map<string, BlockedWhatsappNumber> | null,
 ): Conversation[] {
-  const previousById = new Map(
-    previous.map((conversation) => [conversation.id, conversation]),
+  return list.map((conversation) =>
+    reconcileConversationBlock(
+      conversation,
+      conversation.phone &&
+        (!conversation.channel || conversation.channel === "whatsapp")
+        ? blockedByPhone?.get(conversation.phone)
+        : undefined,
+    ),
   );
-
-  return list.map((conversation) => {
-    if (blockedByPhone) {
-      const entry = blockedByPhone.get(conversation.phone);
-
-      return entry
-        ? {
-            ...conversation,
-            blocked: true,
-            whatsappStatus: entry.whatsappStatus,
-          }
-        : { ...conversation, blocked: false };
-    }
-
-    const prior = previousById.get(conversation.id);
-
-    if (prior?.blocked && !conversation.blocked) {
-      return {
-        ...conversation,
-        blocked: true,
-        whatsappStatus: prior.whatsappStatus ?? conversation.whatsappStatus,
-      };
-    }
-
-    return conversation;
-  });
 }
 
 function matchesFilter(
@@ -97,6 +82,101 @@ function matchesFilter(
   }
 
   return false;
+}
+
+function laterTimestamp(
+  current: string | null | undefined,
+  incoming: string | null | undefined,
+): string | null | undefined {
+  if (!incoming) return current;
+
+  if (!current) return incoming;
+
+  const left = Date.parse(current);
+
+  const right = Date.parse(incoming);
+
+  if (Number.isNaN(right)) return current;
+
+  if (Number.isNaN(left)) return incoming;
+
+  return right >= left ? incoming : current;
+}
+
+/** Keep the newer received time when a stale snapshot arrives after a live update. */
+function mergeConversation(
+  existing: Conversation,
+  incoming: Partial<Conversation>,
+): Conversation {
+  const merged: Conversation = { ...existing, ...incoming };
+
+  const lastMessageAt = laterTimestamp(
+    existing.lastMessageAt,
+    incoming.lastMessageAt,
+  );
+
+  const keepExistingMessage =
+    Boolean(existing.lastMessageAt) &&
+    lastMessageAt === existing.lastMessageAt &&
+    incoming.lastMessageAt !== existing.lastMessageAt;
+
+  if (keepExistingMessage) {
+    merged.lastMessageAt = existing.lastMessageAt;
+    merged.preview = existing.preview;
+    merged.lastMessageDirection = existing.lastMessageDirection;
+    merged.lastMessageId = existing.lastMessageId;
+    merged.unreadCount = existing.unreadCount;
+
+    return merged;
+  }
+
+  if (lastMessageAt) merged.lastMessageAt = lastMessageAt;
+
+  return merged;
+}
+
+function conversationPatchFromMessage(
+  event: RealtimeEvent,
+): (Partial<Conversation> & { id: string }) | null {
+  const nested =
+    event.message && typeof event.message === "object"
+      ? (event.message as Record<string, unknown>)
+      : null;
+
+  const raw = nested
+    ? { ...(event as Record<string, unknown>), ...nested }
+    : (event as Record<string, unknown>);
+
+  const conversationId = raw.conversationId ?? raw.conversation_id;
+
+  if (typeof conversationId !== "string" && typeof conversationId !== "number")
+    return null;
+
+  const createdRaw = raw.createdAt ?? raw.created_at ?? raw.timestamp;
+
+  const createdAt =
+    typeof createdRaw === "string" && !Number.isNaN(Date.parse(createdRaw))
+      ? createdRaw
+      : null;
+
+  const direction =
+    raw.direction === "inbound" || raw.direction === "outbound"
+      ? raw.direction
+      : undefined;
+
+  const text = typeof raw.text === "string" ? raw.text.trim() : "";
+
+  const messageId = raw.messageId ?? raw.message_id;
+
+  return {
+    id: String(conversationId),
+    ...(createdAt ? { lastMessageAt: createdAt } : {}),
+    ...(direction ? { lastMessageDirection: direction } : {}),
+    ...(text ? { preview: text } : {}),
+    ...(typeof messageId === "string" || typeof messageId === "number"
+      ? { lastMessageId: String(messageId) }
+      : {}),
+  };
 }
 
 export default function ConversationsPage() {
@@ -130,7 +210,7 @@ export default function ConversationsPage() {
 
   const [failure, setFailure] = useState<string | null>(null);
 
-  const inFlight = useRef(false);
+  const loadSeq = useRef(0);
 
   const [agents, setAgents] = useState<PortalUser[]>([]);
 
@@ -171,9 +251,7 @@ export default function ConversationsPage() {
 
   const load = useCallback(
     async (silent = false) => {
-      if (inFlight.current) return;
-
-      inFlight.current = true;
+      const seq = ++loadSeq.current;
 
       if (!silent) setLoading(true);
 
@@ -185,15 +263,25 @@ export default function ConversationsPage() {
             : Promise.resolve(null),
         ]);
 
+        if (seq !== loadSeq.current) return;
+
         const blockedByPhone = blockedEntries
           ? new Map(
               blockedEntries.map((entry) => [entry.phone, entry] as const),
             )
           : null;
 
-        setConversations((current) =>
-          reconcileBlocked(list, current, blockedByPhone),
-        );
+        setConversations((current) => {
+          const localById = new Map(current.map((item) => [item.id, item]));
+
+          return sortByRecent(
+            reconcileBlocked(list, blockedByPhone).map((server) => {
+              const local = localById.get(server.id);
+
+              return local ? mergeConversation(local, server) : server;
+            }),
+          );
+        });
         setFailure(null);
 
         if (filter === "hidden") {
@@ -208,6 +296,8 @@ export default function ConversationsPage() {
           void Promise.allSettled(
             needsName.map((item) => api.conversation(item.id)),
           ).then((results) => {
+            if (seq !== loadSeq.current) return;
+
             results.forEach((result) => {
               if (result.status !== "fulfilled") return;
 
@@ -216,7 +306,9 @@ export default function ConversationsPage() {
               setConversations((current) =>
                 current.map((item) =>
                   item.id === fresh.id
-                    ? { ...item, assignee: fresh.assignee ?? null }
+                    ? mergeConversation(item, {
+                        assignee: fresh.assignee ?? null,
+                      })
                     : item,
                 ),
               );
@@ -224,10 +316,11 @@ export default function ConversationsPage() {
           });
         }
       } catch (error) {
+        if (seq !== loadSeq.current) return;
+
         setFailure(errorKey(error));
       } finally {
-        inFlight.current = false;
-        setLoading(false);
+        if (seq === loadSeq.current) setLoading(false);
       }
     },
     [filter, canManageUsers],
@@ -236,6 +329,8 @@ export default function ConversationsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  usePoll(() => void load(true), 30_000, true);
 
   useEffect(() => {
     if ((filter === "hidden" || filter === "agent") && !canManageUsers)
@@ -249,18 +344,26 @@ export default function ConversationsPage() {
   }, [requestedId]);
 
   useEffect(() => {
-    const query = new URLSearchParams();
+    const query = new URLSearchParams(params.toString());
 
-    if (activeId) query.set("id", activeId);
+    if (activeId) {
+      query.set("id", activeId);
+    } else {
+      query.delete("id");
+    }
 
-    if (filter !== "all") query.set("filter", filter);
+    if (filter !== "all") {
+      query.set("filter", filter);
+    } else {
+      query.delete("filter");
+    }
 
     const search = query.toString();
 
     router.replace(search ? `/conversations?${search}` : "/conversations", {
       scroll: false,
     });
-  }, [activeId, filter, router]);
+  }, [activeId, filter, params, router]);
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -290,7 +393,7 @@ export default function ConversationsPage() {
 
       return (
         name.includes(needle) ||
-        conversation.phone.toLowerCase().includes(needle) ||
+        contactSearchText(conversation).includes(needle) ||
         assigneeName.includes(needle)
       );
     });
@@ -361,14 +464,16 @@ export default function ConversationsPage() {
       return sortByRecent(
         current.map((conversation) =>
           conversation.id === next.id
-            ? { ...conversation, ...next }
+            ? mergeConversation(conversation, next)
             : conversation,
         ),
       );
     });
 
     setDetached((current) =>
-      current && current.id === next.id ? { ...current, ...next } : current,
+      current && current.id === next.id
+        ? mergeConversation(current, next)
+        : current,
     );
   }, []);
 
@@ -390,12 +495,13 @@ export default function ConversationsPage() {
   agentIdRef.current = agent?.id ?? null;
 
   const upsert = useCallback(
-    (partial: Partial<Conversation> & { id: string }) => {
-      const {
-        blocked: _ignoredBlocked,
-        whatsappStatus: _ignoredWhatsappStatus,
-        ...safePartial
-      } = partial;
+    (
+      partial: Partial<Conversation> & { id: string },
+      options?: { insert?: boolean },
+    ) => {
+      const insert = options?.insert !== false;
+
+      const safePartial = partial;
 
       if (safePartial.hidden === true) {
         hiddenIdsRef.current.add(safePartial.id);
@@ -409,6 +515,8 @@ export default function ConversationsPage() {
         const knownHidden = hiddenIdsRef.current.has(safePartial.id);
 
         if (idx === -1) {
+          if (!insert) return current;
+
           const effective = knownHidden
             ? { ...safePartial, hidden: true }
             : safePartial;
@@ -424,11 +532,9 @@ export default function ConversationsPage() {
 
         const existing = current[idx];
 
-        const merged: Conversation = {
-          ...existing,
-          ...safePartial,
-          hidden: knownHidden ? true : existing.hidden,
-        };
+        const merged: Conversation = mergeConversation(existing, safePartial);
+
+        merged.hidden = knownHidden ? true : existing.hidden;
 
         if (!matchesFilter(merged, filterRef.current, agentIdRef.current)) {
           if (merged.id === activeIdRef.current) {
@@ -459,7 +565,7 @@ export default function ConversationsPage() {
 
       setDetached((current) =>
         current && current.id === safePartial.id
-          ? { ...current, ...safePartial }
+          ? mergeConversation(current, safePartial)
           : current,
       );
 
@@ -583,17 +689,18 @@ export default function ConversationsPage() {
       id: string,
       blocked: boolean,
       whatsappStatus: Conversation["whatsappStatus"] | null,
+      identity: Partial<Conversation> = {},
     ) => {
       setConversations((current) =>
         current.map((conversation) =>
           conversation.id === id
-            ? { ...conversation, blocked, whatsappStatus }
+            ? { ...conversation, ...identity, blocked, whatsappStatus }
             : conversation,
         ),
       );
       setDetached((current) =>
         current && current.id === id
-          ? { ...current, blocked, whatsappStatus }
+          ? { ...current, ...identity, blocked, whatsappStatus }
           : current,
       );
     },
@@ -610,7 +717,38 @@ export default function ConversationsPage() {
         case "conversation.upserted": {
           const { event: _ignored, ...rest } = event;
 
-          upsert(rest as Partial<Conversation> & { id: string });
+          const raw = rest as Record<string, unknown>;
+
+          const id = raw.id ?? raw.conversationId ?? raw.conversation_id;
+
+          if (id == null || id === "") break;
+
+          const lastMessageAt =
+            typeof raw.lastMessageAt === "string"
+              ? raw.lastMessageAt
+              : typeof raw.last_message_at === "string"
+                ? raw.last_message_at
+                : undefined;
+
+          const patch: Partial<Conversation> & { id: string } = {
+            ...(rest as Partial<Conversation>),
+            id: String(id),
+          };
+
+          if (lastMessageAt) patch.lastMessageAt = lastMessageAt;
+          else delete patch.lastMessageAt;
+
+          upsert(patch);
+
+          break;
+        }
+
+        case "message.created": {
+          const patch = conversationPatchFromMessage(event);
+
+          if (!patch) break;
+
+          upsert(patch, { insert: false });
 
           break;
         }
@@ -672,6 +810,16 @@ export default function ConversationsPage() {
             conversationId,
             Boolean(event.blocked),
             (event.whatsappStatus as Conversation["whatsappStatus"]) ?? null,
+            typeof event.identityBlocked === "boolean"
+              ? {
+                  identityBlocked: event.identityBlocked,
+                  identityBlockSource:
+                    event.identityBlockSource as Conversation["identityBlockSource"],
+                  identityBlockExpiresAt: event.identityBlockExpiresAt as
+                    | string
+                    | null,
+                }
+              : {},
           );
 
           break;
@@ -733,7 +881,12 @@ export default function ConversationsPage() {
   return (
     <AppShell
       flush
-      title={t("inbox.title")}
+      title={
+        <>
+          {t("inbox.title")}
+          {!loading && !failure ? <CountBadge count={filtered.length} /> : null}
+        </>
+      }
       subtitle={failure ? t(failure) : t("inbox.selectHint")}
       actions={
         <div className="flex items-center gap-2">

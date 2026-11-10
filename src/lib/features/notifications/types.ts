@@ -1,6 +1,8 @@
 import type { Mode } from "@/lib/features/conversations/types";
 
-export interface AppNotification {
+import type { ChannelIdentity } from "../../channel-identity";
+
+export interface AppNotification extends ChannelIdentity {
   id: string;
   type: string;
   title: string;

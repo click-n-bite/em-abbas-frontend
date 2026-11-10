@@ -26,7 +26,7 @@ interface I18nContextValue {
   t: Translate;
   formatDateTime: (value: string | number | Date) => string;
   formatTime: (value: string | number | Date) => string;
-  formatRelative: (value: string | number | Date) => string;
+  formatRelative: (value: string | number | Date, now?: number) => string;
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null);
@@ -72,8 +72,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         numberingSystem: "latn",
       }).format(new Date(input));
 
-    const formatRelative = (input: string | number | Date) => {
-      const diff = Date.now() - new Date(input).getTime();
+    const formatRelative = (
+      input: string | number | Date,
+      now = Date.now(),
+    ) => {
+      const diff = now - new Date(input).getTime();
 
       const minutes = Math.round(diff / 60000);
 

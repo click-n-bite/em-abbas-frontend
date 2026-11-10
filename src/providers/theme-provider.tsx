@@ -9,6 +9,7 @@ import {
 } from "react";
 import { STORAGE_KEYS } from "@/lib/config";
 
+/** What the user picked. "system" follows the device's light/dark setting. */
 export type ThemePreference = "light" | "dark" | "system";
 
 type ResolvedTheme = "light" | "dark";

@@ -4,6 +4,11 @@
 
 :root {
 	--font-sans: "Inter", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif;
+	color-scheme: light;
+}
+
+.dark {
+	color-scheme: dark;
 }
 
 @layer base {
@@ -48,7 +53,7 @@
 	}
 
 	.input {
-		@apply w-full rounded-xl border border-ink-200 bg-white px-3 py-2 !text-[16px] text-ink-900 transition placeholder:text-ink-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200 disabled:cursor-not-allowed disabled:bg-ink-100 dark:border-ink-600 dark:bg-ink-900 dark:text-ink-100 dark:placeholder:text-ink-500 dark:focus:ring-brand-900 dark:disabled:bg-ink-800;
+		@apply w-full rounded-xl border border-ink-200 bg-white px-3 py-2 !text-[16px] text-ink-900 transition [color-scheme:light] placeholder:text-ink-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200 disabled:cursor-not-allowed disabled:bg-ink-100 dark:border-ink-600 dark:bg-ink-900 dark:text-ink-100 dark:placeholder:text-ink-500 dark:[color-scheme:dark] dark:focus:ring-brand-900 dark:disabled:bg-ink-800;
 	}
 
 	.textarea {

@@ -1,3 +1,5 @@
+import type { ChannelIdentity } from "../../channel-identity";
+
 export type Mode = "bot" | "waiting" | "agent";
 
 export type ConversationFilter =
@@ -8,10 +10,14 @@ export type ConversationFilter =
   | "hidden"
   | "agent";
 
-export interface Conversation {
+export interface Conversation extends ChannelIdentity {
   id: string;
-  phone: string;
+  phone: string | null;
+  identityBlocked?: boolean;
+  identityBlockSource?: "admin" | "abuse" | null;
+  identityBlockExpiresAt?: string | null;
   customerName: string | null;
+  customerCountry?: string | null;
   mode: Mode;
   assigneeId: string | null;
   preview: string | null;

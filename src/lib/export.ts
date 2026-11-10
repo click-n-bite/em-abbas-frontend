@@ -36,9 +36,25 @@ export function exportContactsToCsv(
   conversations: Conversation[],
   filename = "contacts.csv",
 ): void {
-  const headers = ["Name", "Phone"];
+  const headers = [
+    "Name",
+    "Phone",
+    "Channel",
+    "Connection",
+    "User identity type",
+    "User identity",
+    "Conversation ID",
+  ];
 
-  const rows = conversations.map((c) => [c.customerName ?? "", c.phone ?? ""]);
+  const rows = conversations.map((c) => [
+    c.customerName ?? "",
+    c.phone ?? "",
+    c.channel ?? "whatsapp",
+    c.connectionId ?? "whatsapp-default",
+    c.externalUserType ?? (c.phone ? "phone" : "user_id"),
+    c.externalUserId ?? c.whatsappUserId ?? c.phone ?? "",
+    c.id,
+  ]);
 
   downloadCsv(filename, rowsToCsv(headers, rows));
 }

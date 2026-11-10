@@ -16,6 +16,7 @@
 	"dependencies": {
 		"@stomp/stompjs": "7.0.0",
 		"clsx": "2.1.1",
+		"flag-icons": "^7.6.0",
 		"heic2any": "^0.0.4",
 		"libphonenumber-js": "1.11.15",
 		"lucide-react": "0.454.0",

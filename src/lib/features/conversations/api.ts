@@ -70,6 +70,18 @@ export const conversationsApi = {
     await request<void>(`/conversations/${id}/read`, { method: "POST" });
   },
 
+  async setIdentityBlock(id: string, blocked: boolean): Promise<Conversation> {
+    const payload = await request<unknown>(
+      `/conversations/${encodeURIComponent(id)}/identity-block`,
+      {
+        method: "POST",
+        body: { blocked },
+      },
+    );
+
+    return unwrapItem<Conversation>(payload, "conversation");
+  },
+
   async sendMessage(
     id: string,
     payload: SendMessagePayload,

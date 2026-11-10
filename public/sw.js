@@ -53,17 +53,29 @@ self.addEventListener("push", (event) => {
   const tag = (payload && payload.tag) || "ema-notification";
 
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      tag,
-      icon: ICON,
-      badge: BADGE,
-      data: {
-        url: routeFor(payload),
-        notificationId: payload ? payload.notificationId : undefined,
-        eventType: payload ? payload.eventType : undefined,
-      },
-    }),
+    self.registration
+      .showNotification(title, {
+        body,
+        tag,
+        icon: ICON,
+        badge: BADGE,
+        data: {
+          url: routeFor(payload),
+          notificationId: payload ? payload.notificationId : undefined,
+          eventType: payload ? payload.eventType : undefined,
+        },
+      })
+      .then(() =>
+        self.clients.matchAll({
+          type: "window",
+          includeUncontrolled: true,
+        }),
+      )
+      .then((windows) => {
+        windows.forEach((client) => {
+          client.postMessage({ type: "ema-notification" });
+        });
+      }),
   );
 });
 
