@@ -76,13 +76,13 @@ export function PaginationFooter({
           </Select>
         </div>
 
-        <span className="hidden whitespace-nowrap text-xs tabular-nums text-ink-500 dark:text-ink-400 sm:inline">
+        {/* <span className="hidden whitespace-nowrap text-xs tabular-nums text-ink-500 dark:text-ink-400 sm:inline">
           {t("common.pageRange", {
             start: page * pageSize + 1,
             end: Math.min((page + 1) * pageSize, total),
             total,
           })}
-        </span>
+        </span> */}
       </div>
 
       {totalPages > 1 ? (
