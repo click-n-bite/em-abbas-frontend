@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "./notification-bell";
 
 interface Props {
-  title: string;
+  title: React.ReactNode;
   subtitle?: string;
   onMenu: () => void;
   actions?: React.ReactNode;
