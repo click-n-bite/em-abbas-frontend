@@ -47,7 +47,7 @@ function buildQuery(params: LeadsListParams): string {
 
 export const leadsApi = {
   async export(params: LeadExportParams, signal?: AbortSignal) {
-    // All scope deliberately excludes screen filters. Neither scope is paged.
+    // Only the filtered scope sends screen filters; "all" and "active" ignore them. None is paged.
     const query = new URLSearchParams(
       params.scope === "filtered" ? buildQuery(params) : "",
     );

@@ -1,6 +1,7 @@
 import type { SortDirection } from "@/lib/sorting";
+import type { ChannelIdentity } from "../../channel-identity";
 
-export type LeadStatus = "open" | "closed";
+export type LeadStatus = "open" | "in_progress" | "closed";
 
 export type LeadSource = "ai" | "agent";
 
@@ -17,12 +18,12 @@ export interface LeadCreator {
   role: string;
 }
 
-export interface Lead {
+export interface Lead extends ChannelIdentity {
   id: number;
   status: LeadStatus;
   source: LeadSource;
   conversationId: string;
-  phone: string;
+  phone: string | null;
   customerName: string | null;
   serviceId: number;
   serviceKey: string;
@@ -31,6 +32,8 @@ export interface Lead {
   note: string | null;
   createdBy: LeadCreator | null;
   closedBy: LeadCreator | null;
+  startedBy?: LeadCreator | null;
+  startedAt?: string | null;
   closeNote: string | null;
   closedAt: string | null;
   createdAt: string;
@@ -82,7 +85,7 @@ export interface CreateLeadPayload {
   collectedFields?: Record<string, unknown>;
 }
 
-export type LeadExportScope = "filtered" | "all";
+export type LeadExportScope = "filtered" | "active" | "all";
 
 export interface LeadExportParams
   extends Omit<LeadsListParams, "page" | "size"> {
@@ -94,4 +97,8 @@ export interface UpdateLeadPayload {
   status?: LeadStatus;
   closeNote?: string;
   note?: string;
+  /** Corrected text answers keyed by existing field name. */
+  collectedFields?: Record<string, string>;
+  /** Renames the customer everywhere (chat display name and the Full name answer). */
+  customerName?: string;
 }
