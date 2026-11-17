@@ -77,13 +77,19 @@ const en = {
 	},
 	inbox: {
 		title: "Conversations",
+		filterByAgent: "Filter by agent",
+		allAgents: "All agents",
+		agentChip: "Agent: {name}",
+		clearAgentFilter: "Clear agent filter",
 		filters: {
 			all: "All",
 			waiting: "Waiting",
 			bot: "AI",
 			agent: "Agent",
 			mine: "Mine",
-			hidden: "Hidden"
+			hidden: "Hidden",
+			channel: "Channel",
+			allChannels: "All channels"
 		},
 		searchPlaceholder: "Search by name, phone, or agent…",
 		empty: "No conversations match this filter.",
@@ -93,8 +99,6 @@ const en = {
 		you: "you",
 		unreadCount: "{n} unread",
 		hiddenEmpty: "Hidden Empty",
-		allAgents: "All agents",
-		filterByAgent: "Filter by agent",
 		quickBlock: "Block",
 		quickUnblock: "Unblock",
 		exportContacts: "Export Contacts"
@@ -214,7 +218,8 @@ const en = {
 		mediaImages: "Images & videos",
 		mediaDocuments: "Documents & voice messages",
 		mediaEmpty: "No media shared in this conversation yet.",
-		voiceMessage: "Voice message"
+		voiceMessage: "Voice message",
+		profileNameSays: "Profile name: {name}"
 	},
 	mode: { bot: "AI", waiting: "Waiting", agent: "Agent" },
 	notifications: {
@@ -417,6 +422,7 @@ const en = {
 		exportDescription: "Includes lead details, questions and answers, grouped by service.",
 		exportScope: "Choose which leads to export",
 		exportFiltered: "Export filtered leads",
+		start: "Start",
 		exportFilteredHint: "All results matching the current filters, across every page.",
 		exportAll: "Export all leads",
 		exportAllHint: "All open and closed leads. Current filters are ignored.",
@@ -443,7 +449,7 @@ const en = {
 		added: "Lead added.",
 		duplicate: "This chat already has an open lead for that service.",
 		searchPlaceholder: "Search by phone or name…",
-		filters: { open: "Open", closed: "Closed", all: "All" },
+		filters: { open: "Open", closed: "Closed", all: "All", in_progress: "In Progress" },
 		source: { all: "All sources", ai: "AI", agent: "Agent" },
 		sourceLabel: { ai: "AI bot", agent: "Agent" },
 		mineOnly: "Only mine",
@@ -454,7 +460,7 @@ const en = {
 		createdAt: "Created",
 		closedBy: "Closed by",
 		closedAt: "Closed",
-		status: { open: "Open", closed: "Closed" },
+		status: { open: "Open", closed: "Closed", in_progress: "In Progress" },
 		close: "Close",
 		closeTitle: "Close this lead",
 		closeSubtitle: "Add a short description of why this lead is closed.",
@@ -500,6 +506,9 @@ const en = {
 		colDetails: "Details",
 		colSource: "Source",
 		colStatus: "Status",
+		colChannel: "Channel",
+		startProgress: "Start Progress",
+		actions: "Actions",
 		showMore: "Show more",
 		showLess: "Show less",
 		fullNote: "Full note",
@@ -753,6 +762,18 @@ const en = {
 		messageSound: "Play a sound for new messages",
 		messageSoundHelp: "Plays a short chime whenever a customer message arrives, anywhere in the inbox.",
 		testSound: "Preview sound"
+	},
+	channels: {
+		whatsapp: "WhatsApp",
+		instagram: "Instagram",
+		facebook: "Facebook",
+		telegram: "Telegram",
+		tiktok: "TikTok",
+		threads: "Threads",
+		twitter: "X (Twitter)",
+		web: "Web chat",
+		sip: "Phone",
+		unknown: "Other channel"
 	}
 }
 

@@ -8,7 +8,6 @@ export type VoiceCallStatus =
 	| "failed"
 	| "unknown"
 
-/** Statuses the backend groups under `status=active`. */
 export const ACTIVE_VOICE_STATUSES: readonly VoiceCallStatus[] = ["incoming", "ringing", "in_progress"]
 
 export type VoiceCallStatusFilter = "all" | "active" | VoiceCallStatus

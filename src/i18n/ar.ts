@@ -79,13 +79,19 @@ const ar: Dictionary = {
 	},
 	inbox: {
 		title: "المحادثات",
+		filterByAgent: "التصفية حسب الموظف",
+		allAgents: "كل الموظفين",
+		agentChip: "الموظف: {name}",
+		clearAgentFilter: "إزالة تصفية الموظف",
 		filters: {
 			all: "الكل",
 			waiting: "بانتطار",
 			bot: "الذكاء الاصطناعي",
 			agent: "موظف",
 			mine: "خاصتي",
-			hidden: "مخفية"
+			hidden: "مخفية",
+			channel: "القناة",
+			allChannels: "كل القنوات"
 		},
 		searchPlaceholder: "ابحث بالاسم أو الرقم أو الموظف…",
 		empty: "لا توجد محادثات مطابقة.",
@@ -95,8 +101,6 @@ const ar: Dictionary = {
 		you: "أنت",
 		unreadCount: "{n} غير مقروءة",
 		hiddenEmpty: "غير متوفر",
-		allAgents: "كل الموظفين",
-		filterByAgent: "تصفية حسب الموظف",
 		quickBlock: "حجب",
 		quickUnblock: "إلغاء الحجب",
 		exportContacts: "تحميل جهات الاتصال"
@@ -216,7 +220,8 @@ const ar: Dictionary = {
 		leadAdded: "تمت إضافة العميل المحتمل.",
 		leadAlreadyOpen: "توجد بالفعل حالة مفتوحة لهذه الخدمة على هذه المحادثة.",
 		tabMessages: "الرسائل",
-		tabActivity: "السجل"
+		tabActivity: "السجل",
+		profileNameSays: "اسم الملف الشخصي: {name}"
 	},
 	mode: { bot: "الذكاء الاصطناعي", waiting: "بانتطار", agent: "موظف" },
 	notifications: {
@@ -416,6 +421,7 @@ const ar: Dictionary = {
 		phoneCountryHint: "البلد المستنتج من رقم الهاتف",
 		phoneCountryUnknown: "البلد غير معروف",
 		exportExcel: "تصدير Excel",
+		start: "Start",
 		exportDescription: "يشمل تفاصيل العملاء المحتملين والأسئلة والأجوبة، مجمّعة حسب الخدمة.",
 		exportScope: "اختر العملاء المحتملين المراد تصديرهم",
 		exportFiltered: "تصدير النتائج المفلترة",
@@ -445,7 +451,7 @@ const ar: Dictionary = {
 		added: "تمت إضافة العميل المحتمل.",
 		duplicate: "تحتوي هذه المحادثة بالفعل على عميل محتمل مفتوح لهذه الخدمة.",
 		searchPlaceholder: "البحث باستخدام رقم الهاتف أو الاسم…",
-		filters: { open: "مفتوحة", closed: "مغلقة", all: "الكل" },
+		filters: { open: "مفتوحة", closed: "مغلقة", all: "الكل", in_progress: "قيد التنفيذ" },
 		source: { all: "جميع المصادر", ai: "الذكاء الاصطناعي", agent: "الموظف" },
 		sourceLabel: { ai: "روبوت الذكاء الاصطناعي", agent: "الموظف" },
 		mineOnly: "خاص بي فقط",
@@ -456,7 +462,7 @@ const ar: Dictionary = {
 		createdAt: "تاريخ الإنشاء",
 		closedBy: "تم الإغلاق بواسطة",
 		closedAt: "تاريخ الإغلاق",
-		status: { open: "مفتوح", closed: "مغلق" },
+		status: { open: "مفتوح", closed: "مغلق", in_progress: "قيد التنفيذ" },
 		close: "إغلاق",
 		closeTitle: "إغلاق هذا العميل المحتمل",
 		closeSubtitle: "أضف وصفًا مختصرًا لسبب إغلاق هذا العميل المحتمل.",
@@ -502,6 +508,9 @@ const ar: Dictionary = {
 		colDetails: "التفاصيل",
 		colSource: "المصدر",
 		colStatus: "الحالة",
+		colChannel: "القناة",
+		startProgress: "بدء التنفيذ",
+		actions: "الإجراءات",
 		showMore: "عرض المزيد",
 		showLess: "عرض أقل",
 		fullNote: "الملاحظة كاملة",
@@ -767,6 +776,18 @@ const ar: Dictionary = {
 		messageSound: "تشغيل صوت عند وصول رسالة جديدة",
 		messageSoundHelp: "يُصدر نغمة قصيرة عند وصول أي رسالة من عميل، في أي مكان في صندوق الوارد.",
 		testSound: "تجربة الصوت"
+	},
+	channels: {
+		whatsapp: "واتساب",
+		instagram: "إنستغرام",
+		facebook: "فيسبوك",
+		telegram: "تيليغرام",
+		tiktok: "تيك توك",
+		threads: "ثريدز",
+		twitter: "إكس (تويتر)",
+		web: "الدردشة عبر الموقع",
+		sip: "هاتف",
+		unknown: "قناة أخرى"
 	}
 }
 
