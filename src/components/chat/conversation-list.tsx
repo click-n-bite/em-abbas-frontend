@@ -15,6 +15,7 @@ import { cn, textDirOf } from "@/lib/utils"
 import type { ChannelKey } from "@/lib/channels"
 import type { Conversation } from "@/lib/types"
 import type { PortalUser } from "@/lib/features/users/types"
+import { TrustedStar } from "../contacts/trusted-star"
 
 export type InboxFilter = "all" | "bot" | "agent" | "mine" | "hidden"
 
@@ -221,7 +222,6 @@ export function ConversationList({
 						</>
 					) : null}
 
-					{/* Admin/superadmin only — narrows the "All"/"Agent" tabs to one agent's chats. */}
 					{showAgentFilter ? (
 						<>
 							<button
@@ -301,7 +301,6 @@ export function ConversationList({
 						))}
 				</div>
 
-				{/* Channel chips — only when there are a few channels (2..CHANNEL_CHIP_LIMIT). */}
 				{showChannelChips ? (
 					<div
 						role='group'
@@ -421,6 +420,7 @@ export function ConversationList({
 													)}>
 													{name}
 												</span>
+												{conversation.contact?.trusted ? <TrustedStar className='ms-1 align-middle' /> : null}
 												{conversation.lastMessageAt ? (
 													<span className='shrink-0 text-[11px] text-ink-400'>
 														{formatRelative(conversation.lastMessageAt, now)}

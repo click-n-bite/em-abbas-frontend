@@ -39,6 +39,7 @@ const en = {
 	nav: {
 		conversations: "Conversations",
 		leads: "Leads",
+		contacts: "Contacts",
 		calls: "Voice calls",
 		notifications: "Notifications",
 		users: "Users",
@@ -774,6 +775,125 @@ const en = {
 		web: "Web chat",
 		sip: "Phone",
 		unknown: "Other channel"
+	},
+	contacts: {
+		title: "Contacts",
+		subtitle: "People your team knows, shared by everyone.",
+		new: "New contact",
+		edit: "Edit",
+		delete: "Delete",
+		deleteTitle: "Delete this contact?",
+		deleteBody: "The contact, its phones and its links are removed. Customers and chats are not touched.",
+		deleted: "Contact deleted",
+		saved: "Contact saved",
+		linked: "Chat linked to contact",
+		trusted: "Trusted contact",
+		noPhones: "No phone numbers",
+		empty: "No contacts found",
+		searchPlaceholder: "Search by name or phone",
+		moreFilters: "Filters",
+		clearFilters: "Clear filters",
+		chatsCount: "{n} chats",
+		openContact: "Open contact",
+		linkedTo: "Contact: {name}",
+		linkToContact: "Link to contact",
+
+		filters: { all: "All", trusted: "Trusted", notTrusted: "Not trusted" },
+		linkedFilter: { all: "All chats", linked: "With chats", unlinked: "No chats" },
+		sort: {
+			label: "Sort",
+			nameAsc: "Name A–Z",
+			nameDesc: "Name Z–A",
+			updatedDesc: "Recently updated",
+			createdDesc: "Newest"
+		},
+		col: {
+			name: "Name",
+			phones: "Phones",
+			chats: "Chats",
+			source: "Source",
+			updated: "Updated"
+		},
+		source: { manual: "Added manually", chat: "Saved from a chat", import: "Imported" },
+
+		form: {
+			createTitle: "New contact",
+			editTitle: "Edit contact",
+			name: "Name",
+			notes: "Notes",
+			phones: "Phone numbers",
+			phoneNumber: "Phone number",
+			phoneLabel: "Label (e.g. Mobile)",
+			addPhone: "Add phone",
+			removePhone: "Remove phone",
+			trusted: "Trusted contact",
+			trustedReason: "Reason (optional)"
+		},
+
+		card: {
+			notes: "Notes",
+			linkedChats: "Linked chats",
+			noLinkedChats: "No chats are linked to this contact yet.",
+			hiddenChat: "Removed from inbox",
+			openChat: "Open chat",
+			unlink: "Unlink",
+			unlinkTitle: "Unlink this chat?",
+			unlinkBody: "The chat stays in the inbox. It just no longer belongs to this contact.",
+			unlinked: "Chat unlinked",
+			activity: "Activity",
+			noActivity: "No activity yet.",
+			createdBy: "Created by {name}",
+			staff: "Staff",
+			markTrusted: "Mark trusted",
+			removeTrusted: "Remove trusted"
+		},
+
+		saveAsContact: {
+			title: "Save as contact",
+			hint: "Creates a contact from this chat and links it.",
+			action: "Save as contact"
+		},
+
+		picker: {
+			title: "Link to a contact",
+			search: "Search contacts",
+			none: "No contacts found"
+		},
+
+		suggest: {
+			chatMayBelong: "A chat from {phone} may belong to this contact",
+			contactMayFit: "This chat may belong to {name}",
+			link: "Link",
+			dismiss: "Dismiss"
+		},
+
+		warnings: { phoneOnOther: "{phone} is also on {name}" },
+
+		errors: {
+			nameRequired: "Please enter a name.",
+			invalidPhone: "A phone number must have 8 to 15 digits.",
+			tooManyPhones: "A contact can have at most 20 phone numbers.",
+			adminOnly: "Only an admin can change this.",
+			notFound: "This contact does not exist.",
+			conversationNotFound: "This chat does not exist.",
+			linkNotFound: "This chat is not linked to the contact.",
+			alreadyLinked: "This customer already belongs to {name}."
+		},
+
+		events: {
+			created: "Contact created",
+			updated: "Contact updated",
+			renamed: "Renamed from “{from}” to “{to}”",
+			notesChanged: "Notes changed",
+			labelsChanged: "Phone labels changed",
+			trustedOn: "Marked as trusted",
+			trustedOff: "Trusted removed",
+			phoneAdded: "Added {phone}",
+			phoneRemoved: "Removed {phone}",
+			linked: "Linked a {channel} chat",
+			unlinked: "Unlinked a chat",
+			deleted: "Contact deleted"
+		}
 	}
 }
 

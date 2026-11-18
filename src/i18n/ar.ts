@@ -788,6 +788,125 @@ const ar: Dictionary = {
 		web: "الدردشة عبر الموقع",
 		sip: "هاتف",
 		unknown: "قناة أخرى"
+	},
+	contacts: {
+		title: "جهات الاتصال",
+		subtitle: "الأشخاص الذين يعرفهم فريقك، مشتركون بين الجميع.",
+		new: "جهة اتصال جديدة",
+		edit: "تعديل",
+		delete: "حذف",
+		deleteTitle: "حذف جهة الاتصال؟",
+		deleteBody: "سيتم حذف جهة الاتصال وأرقامها وروابطها. لن يتأثر العملاء ولا المحادثات.",
+		deleted: "تم حذف جهة الاتصال",
+		saved: "تم حفظ جهة الاتصال",
+		linked: "تم ربط المحادثة بجهة الاتصال",
+		trusted: "جهة اتصال موثوقة",
+		noPhones: "لا توجد أرقام هاتف",
+		empty: "لا توجد جهات اتصال",
+		searchPlaceholder: "ابحث بالاسم أو رقم الهاتف",
+		moreFilters: "الفلاتر",
+		clearFilters: "مسح الفلاتر",
+		chatsCount: "{n} محادثات",
+		openContact: "فتح جهة الاتصال",
+		linkedTo: "جهة الاتصال: {name}",
+		linkToContact: "ربط بجهة اتصال",
+
+		filters: { all: "الكل", trusted: "موثوقة", notTrusted: "غير موثوقة" },
+		linkedFilter: { all: "كل المحادثات", linked: "مع محادثات", unlinked: "بدون محادثات" },
+		sort: {
+			label: "الترتيب",
+			nameAsc: "الاسم أ–ي",
+			nameDesc: "الاسم ي–أ",
+			updatedDesc: "الأحدث تعديلاً",
+			createdDesc: "الأحدث إضافة"
+		},
+		col: {
+			name: "الاسم",
+			phones: "الهواتف",
+			chats: "المحادثات",
+			source: "المصدر",
+			updated: "آخر تعديل"
+		},
+		source: { manual: "أُضيفت يدوياً", chat: "حُفظت من محادثة", import: "مستوردة" },
+
+		form: {
+			createTitle: "جهة اتصال جديدة",
+			editTitle: "تعديل جهة الاتصال",
+			name: "الاسم",
+			notes: "ملاحظات",
+			phones: "أرقام الهاتف",
+			phoneNumber: "رقم الهاتف",
+			phoneLabel: "التسمية (مثل: جوال)",
+			addPhone: "إضافة رقم",
+			removePhone: "حذف الرقم",
+			trusted: "جهة اتصال موثوقة",
+			trustedReason: "السبب (اختياري)"
+		},
+
+		card: {
+			notes: "ملاحظات",
+			linkedChats: "المحادثات المرتبطة",
+			noLinkedChats: "لا توجد محادثات مرتبطة بجهة الاتصال هذه بعد.",
+			hiddenChat: "أُزيلت من صندوق الوارد",
+			openChat: "فتح المحادثة",
+			unlink: "فك الربط",
+			unlinkTitle: "فك ربط هذه المحادثة؟",
+			unlinkBody: "تبقى المحادثة في صندوق الوارد، لكنها لن تتبع جهة الاتصال هذه.",
+			unlinked: "تم فك ربط المحادثة",
+			activity: "النشاط",
+			noActivity: "لا يوجد نشاط بعد.",
+			createdBy: "أنشأها {name}",
+			staff: "الموظفون",
+			markTrusted: "تحديد كموثوقة",
+			removeTrusted: "إزالة الثقة"
+		},
+
+		saveAsContact: {
+			title: "حفظ كجهة اتصال",
+			hint: "ينشئ جهة اتصال من هذه المحادثة ويربطها بها.",
+			action: "حفظ كجهة اتصال"
+		},
+
+		picker: {
+			title: "الربط بجهة اتصال",
+			search: "ابحث في جهات الاتصال",
+			none: "لا توجد جهات اتصال"
+		},
+
+		suggest: {
+			chatMayBelong: "قد تعود محادثة من {phone} إلى جهة الاتصال هذه",
+			contactMayFit: "قد تعود هذه المحادثة إلى {name}",
+			link: "ربط",
+			dismiss: "تجاهل"
+		},
+
+		warnings: { phoneOnOther: "الرقم {phone} موجود أيضاً لدى {name}" },
+
+		errors: {
+			nameRequired: "يرجى إدخال اسم.",
+			invalidPhone: "يجب أن يتكوّن رقم الهاتف من 8 إلى 15 رقماً.",
+			tooManyPhones: "يمكن أن تحتوي جهة الاتصال على 20 رقماً كحد أقصى.",
+			adminOnly: "هذا التغيير متاح للمسؤول فقط.",
+			notFound: "جهة الاتصال هذه غير موجودة.",
+			conversationNotFound: "هذه المحادثة غير موجودة.",
+			linkNotFound: "هذه المحادثة غير مرتبطة بجهة الاتصال.",
+			alreadyLinked: "هذا العميل مرتبط أصلاً بـ {name}."
+		},
+
+		events: {
+			created: "تم إنشاء جهة الاتصال",
+			updated: "تم تعديل جهة الاتصال",
+			renamed: "تغيّر الاسم من «{from}» إلى «{to}»",
+			notesChanged: "تغيّرت الملاحظات",
+			labelsChanged: "تغيّرت تسميات الأرقام",
+			trustedOn: "تم تحديدها كموثوقة",
+			trustedOff: "أُزيلت الثقة",
+			phoneAdded: "أُضيف الرقم {phone}",
+			phoneRemoved: "حُذف الرقم {phone}",
+			linked: "رُبطت محادثة {channel}",
+			unlinked: "فُكّ ربط محادثة",
+			deleted: "تم حذف جهة الاتصال"
+		}
 	}
 }
 

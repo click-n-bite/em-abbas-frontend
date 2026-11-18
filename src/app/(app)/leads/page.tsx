@@ -29,6 +29,8 @@ import type { Lead, LeadSortField, LeadSource, LeadStatus } from "@/lib/types"
 import { FilterBar, FilterTabs } from "@/components/ui/filter-bar"
 import { DateField } from "@/components/ui/date-field"
 import { ChannelBadge } from "@/components/ui/channel-badge"
+import { TrustedStar } from "@/components/contacts/trusted-star"
+import Link from "next/link"
 
 type StatusFilter = LeadStatus | "all"
 
@@ -815,6 +817,14 @@ function LeadsPageContent() {
 															<bdi dir={lead.customerName?.trim() ? textDirOf(displayName) : "ltr"}>
 																{leadNameWithCountry(lead)}
 															</bdi>
+															{lead.contact ? (
+																<Link
+																	href={`/contacts/${lead.contact.id}`}
+																	className='inline-flex items-center gap-1 text-xs text-brand-600 hover:underline'>
+																	{lead.contact.name}
+																	{lead.contact.trusted ? <TrustedStar /> : null}
+																</Link>
+															) : null}
 															<button
 																type='button'
 																onClick={() => setRenamingLead(lead)}
@@ -979,6 +989,14 @@ function LeadsPageContent() {
 																		className='truncate text-sm font-semibold text-ink-900 dark:text-ink-50'>
 																		{leadNameWithCountry(lead)}
 																	</p>
+																	{lead.contact ? (
+																		<Link
+																			href={`/contacts/${lead.contact.id}`}
+																			className='inline-flex items-center gap-1 text-xs text-brand-600 hover:underline'>
+																			{lead.contact.name}
+																			{lead.contact.trusted ? <TrustedStar /> : null}
+																		</Link>
+																	) : null}
 																	<button
 																		type='button'
 																		onClick={() => setRenamingLead(lead)}

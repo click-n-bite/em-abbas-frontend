@@ -612,6 +612,35 @@ export default function ConversationsPage() {
 			if (!event || typeof event.event !== "string") return
 
 			switch (event.event) {
+				// case "conversation.upserted": {
+				// 	const { event: _ignored, ...rest } = event
+
+				// 	const raw = rest as Record<string, unknown>
+
+				// 	const id = raw.id ?? raw.conversationId ?? raw.conversation_id
+
+				// 	if (id == null || id === "") break
+
+				// 	const lastMessageAt =
+				// 		typeof raw.lastMessageAt === "string"
+				// 			? raw.lastMessageAt
+				// 			: typeof raw.last_message_at === "string"
+				// 				? raw.last_message_at
+				// 				: undefined
+
+				// 	const patch: Partial<Conversation> & { id: string } = {
+				// 		...(rest as Partial<Conversation>),
+				// 		id: String(id)
+				// 	}
+
+				// 	if (lastMessageAt) patch.lastMessageAt = lastMessageAt
+				// 	else delete patch.lastMessageAt
+
+				// 	upsert(patch)
+
+				// 	break
+				// }
+
 				case "conversation.upserted": {
 					const { event: _ignored, ...rest } = event
 
