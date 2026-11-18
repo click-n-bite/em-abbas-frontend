@@ -43,6 +43,7 @@ const ar: Dictionary = {
 		leads: "العملاء المحتملون",
 		notifications: "الإشعارات",
 		calls: "المكالمات الصوتية",
+		contacts: "جهات الاتصال",
 		users: "المستخدمون",
 		blacklist: "الدول المحجوبة",
 		blockedNumbers: "الأرقام المحجوبة",
