@@ -3,6 +3,7 @@ import {
 	Bell,
 	LayoutDashboard,
 	Logs,
+	MegaphoneIcon,
 	MessageSquare,
 	PhoneCall,
 	PhoneOff,
@@ -26,6 +27,11 @@ export const navItems: NavItem[] = [
 		href: "/conversations",
 		labelKey: "nav.conversations",
 		icon: MessageSquare
+	},
+	{
+		href: "/campaigns",
+		labelKey: "nav.campaigns",
+		icon: MegaphoneIcon
 	},
 	{ href: "/calls", labelKey: "nav.calls", icon: PhoneCall },
 	{ href: "/notifications", labelKey: "nav.notifications", icon: Bell },

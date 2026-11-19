@@ -48,7 +48,8 @@ const en = {
 		notifyPhones: "Notification numbers",
 		logs: "Activity logs",
 		settings: "Settings",
-		dashboard: "Overview"
+		dashboard: "Overview",
+		campaigns: "Campaigns"
 	},
 	login: {
 		title: "Sign in to EMA",
@@ -893,6 +894,92 @@ const en = {
 			linked: "Linked a {channel} chat",
 			unlinked: "Unlinked a chat",
 			deleted: "Contact deleted"
+		}
+	},
+	campaigns: {
+		createTitle: "Create Campaign",
+		createSubtitle: "Set up your template, pick recipients and send.",
+		optional: "Optional",
+		required: "Required",
+		saveDraft: "Save Draft",
+		useTemplate: "Use Template",
+		sendTest: "Send Test",
+		review: "Review Campaign",
+		draftSaved: "Draft saved",
+		templateApplied: "Template applied",
+		testSent: "Test message sent",
+		readyToReview: "Campaign ready for {n} recipients",
+		errors: {
+			name: "Enter a campaign name",
+			body: "Write the message body",
+			recipients: "Select at least one recipient",
+			schedule: "Choose a date to send"
+		},
+		category: {
+			marketing: "Marketing",
+			utility: "Utility",
+			authentication: "Authentication"
+		},
+		setup: {
+			title: "Template Setup",
+			subtitle: "Define your campaign details and message template.",
+			name: "Campaign Name",
+			namePlaceholder: "e.g. November Promo Campaign",
+			category: "Template Category",
+			language: "Language",
+			messageTemplate: "Message Template",
+			body: "Message body",
+			bodyPart: "Body",
+			insertName: "Insert name {{1}}",
+			header: "Header",
+			headerPlaceholder: "Header text",
+			footer: "Footer",
+			footerPlaceholder: "Footer text",
+			buttons: "Buttons",
+			buttonLabel: "Button {n}",
+			addButton: "Add button",
+			removeButton: "Remove button"
+		},
+		recipients: {
+			title: "Recipients",
+			subtitle: "Choose who will receive this campaign.",
+			tabImport: "Import Users",
+			tabExisting: "Select Existing",
+			tabSegments: "Segments",
+			uploadTitle: "Upload CSV",
+			uploadHint: "Drag and drop your file here, or click to browse",
+			chooseFile: "Choose File",
+			formats: "CSV: name, phone, tags • Max size 10 MB",
+			tooLarge: "File is larger than 10 MB",
+			csvOnly: "Only .csv files are supported for now",
+			noRows: "No valid rows found in the file",
+			imported: "{n} contacts imported",
+			searchPlaceholder: "Search name or phone",
+			selectSegment: "Select",
+			filterBy: "Filter by:",
+			clearFilters: "Clear Filters",
+			selected: "Selected: {n} recipients",
+			selectAll: "Select all",
+			colName: "Name",
+			colPhone: "Phone Number",
+			colTags: "Tags",
+			empty: "No contacts match these filters"
+		},
+		preview: {
+			title: "Preview & Send",
+			subtitle: "See how your message will look and choose when to send it.",
+			business: "Your Business",
+			businessAccount: "Business Account",
+			today: "Today"
+		},
+		schedule: {
+			title: "Scheduling",
+			now: "Send Now",
+			nowHint: "Deliver the campaign immediately.",
+			later: "Schedule for Later",
+			laterHint: "Choose a date and time to send.",
+			pickDate: "Pick a date",
+			pickTime: "Pick a time"
 		}
 	}
 }

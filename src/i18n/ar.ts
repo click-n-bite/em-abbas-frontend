@@ -50,7 +50,8 @@ const ar: Dictionary = {
 		notifyPhones: "أرقام الإشعارات",
 		logs: "السجلات",
 		settings: "الإعدادات",
-		dashboard: "نظرة عامة"
+		dashboard: "نظرة عامة",
+		campaigns: "الحملة"
 	},
 	login: {
 		title: "تسجيل الدخول إلى EMA",
@@ -907,6 +908,92 @@ const ar: Dictionary = {
 			linked: "رُبطت محادثة {channel}",
 			unlinked: "فُكّ ربط محادثة",
 			deleted: "تم حذف جهة الاتصال"
+		}
+	},
+	campaigns: {
+		createTitle: "إنشاء حملة",
+		createSubtitle: "قم بإعداد القالب، واختر المستلمين، ثم أرسل حملتك.",
+		optional: "اختياري",
+		required: "مطلوب",
+		saveDraft: "حفظ كمسودة",
+		useTemplate: "استخدام قالب",
+		sendTest: "إرسال رسالة تجريبية",
+		review: "مراجعة الحملة",
+		draftSaved: "تم حفظ المسودة",
+		templateApplied: "تم تطبيق القالب",
+		testSent: "تم إرسال الرسالة التجريبية",
+		readyToReview: "الحملة جاهزة للإرسال إلى {n} مستلم",
+		errors: {
+			name: "يرجى إدخال اسم الحملة",
+			body: "يرجى كتابة نص الرسالة",
+			recipients: "يرجى اختيار مستلم واحد على الأقل",
+			schedule: "يرجى تحديد تاريخ الإرسال"
+		},
+		category: {
+			marketing: "تسويقية",
+			utility: "خدمية",
+			authentication: "المصادقة"
+		},
+		setup: {
+			title: "إعداد القالب",
+			subtitle: "حدد تفاصيل حملتك وقالب الرسالة.",
+			name: "اسم الحملة",
+			namePlaceholder: "مثال: حملة عروض شهر نوفمبر",
+			category: "فئة القالب",
+			language: "اللغة",
+			messageTemplate: "قالب الرسالة",
+			body: "نص الرسالة",
+			bodyPart: "المحتوى",
+			insertName: "إدراج الاسم {{1}}",
+			header: "العنوان",
+			headerPlaceholder: "نص العنوان",
+			footer: "التذييل",
+			footerPlaceholder: "نص التذييل",
+			buttons: "الأزرار",
+			buttonLabel: "الزر {n}",
+			addButton: "إضافة زر",
+			removeButton: "إزالة الزر"
+		},
+		recipients: {
+			title: "المستلمون",
+			subtitle: "اختر الأشخاص الذين ستصل إليهم هذه الحملة.",
+			tabImport: "استيراد المستخدمين",
+			tabExisting: "اختيار مستخدمين موجودين",
+			tabSegments: "الشرائح",
+			uploadTitle: "رفع ملف CSV",
+			uploadHint: "اسحب الملف وأفلته هنا، أو انقر لاستعراض الملفات",
+			chooseFile: "اختيار ملف",
+			formats: "CSV: الاسم، رقم الهاتف، الوسوم • الحد الأقصى للحجم 10 ميغابايت",
+			tooLarge: "حجم الملف أكبر من 10 ميغابايت",
+			csvOnly: "ملفات CSV فقط مدعومة حاليًا",
+			noRows: "لم يتم العثور على بيانات صالحة في الملف",
+			imported: "تم استيراد {n} جهة اتصال",
+			searchPlaceholder: "ابحث بالاسم أو رقم الهاتف",
+			selectSegment: "اختيار",
+			filterBy: "تصفية حسب:",
+			clearFilters: "مسح عوامل التصفية",
+			selected: "تم اختيار {n} مستلم",
+			selectAll: "تحديد الكل",
+			colName: "الاسم",
+			colPhone: "رقم الهاتف",
+			colTags: "الوسوم",
+			empty: "لا توجد جهات اتصال تطابق عوامل التصفية"
+		},
+		preview: {
+			title: "معاينة وإرسال",
+			subtitle: "شاهد كيف ستظهر رسالتك واختر موعد إرسالها.",
+			business: "نشاطك التجاري",
+			businessAccount: "حساب الأعمال",
+			today: "اليوم"
+		},
+		schedule: {
+			title: "جدولة الإرسال",
+			now: "إرسال الآن",
+			nowHint: "إرسال الحملة فورًا.",
+			later: "الجدولة لوقت لاحق",
+			laterHint: "اختر تاريخ ووقت الإرسال.",
+			pickDate: "اختر التاريخ",
+			pickTime: "اختر الوقت"
 		}
 	}
 }
