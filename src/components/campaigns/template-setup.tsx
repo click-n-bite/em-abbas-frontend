@@ -11,8 +11,6 @@ import type { CampaignCategory, CampaignDraft } from "@/lib/features/campaigns/t
 interface Props {
 	draft: CampaignDraft
 	onChange: (patch: Partial<CampaignDraft>) => void
-	onSaveDraft: () => void
-	onUseTemplate: () => void
 }
 
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (next: boolean) => void; label: string }) {
@@ -66,11 +64,11 @@ function Part({
 	)
 }
 
-export function TemplateSetup({ draft, onChange, onSaveDraft, onUseTemplate }: Props) {
+export function TemplateSetup({ draft, onChange }: Props) {
 	const { t } = useI18n()
 
 	return (
-		<section className='card flex min-h-0 flex-col'>
+		<section className='card'>
 			<header className='flex items-center gap-3 border-b border-ink-100 p-4 dark:border-ink-700'>
 				<span className='flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-200'>
 					<FileText className='h-5 w-5' aria-hidden='true' />
@@ -81,7 +79,7 @@ export function TemplateSetup({ draft, onChange, onSaveDraft, onUseTemplate }: P
 				</div>
 			</header>
 
-			<div className='min-h-0 flex-1 space-y-4 overflow-y-auto p-4'>
+			<div className='space-y-4 p-4 md:p-5'>
 				<label className='block space-y-1.5'>
 					<span className='text-xs font-medium text-ink-600 dark:text-ink-300'>{t("campaigns.setup.name")} *</span>
 					<input
@@ -92,35 +90,41 @@ export function TemplateSetup({ draft, onChange, onSaveDraft, onUseTemplate }: P
 					/>
 				</label>
 
-				<label className='block space-y-1.5'>
-					<span className='text-xs font-medium text-ink-600 dark:text-ink-300'>{t("campaigns.setup.category")} *</span>
-					<Select
-						value={draft.category}
-						onChange={(event) => onChange({ category: event.target.value as CampaignCategory })}
-						mobileLabel={t(`campaigns.category.${draft.category}`)}
-						aria-label={t("campaigns.setup.category")}>
-						{CATEGORIES.map((category) => (
-							<option key={category} value={category}>
-								{t(`campaigns.category.${category}`)}
-							</option>
-						))}
-					</Select>
-				</label>
+				<div className='grid gap-4 sm:grid-cols-2'>
+					<label className='block space-y-1.5'>
+						<span className='text-xs font-medium text-ink-600 dark:text-ink-300'>
+							{t("campaigns.setup.category")} *
+						</span>
+						<Select
+							value={draft.category}
+							onChange={(event) => onChange({ category: event.target.value as CampaignCategory })}
+							mobileLabel={t(`campaigns.category.${draft.category}`)}
+							aria-label={t("campaigns.setup.category")}>
+							{CATEGORIES.map((category) => (
+								<option key={category} value={category}>
+									{t(`campaigns.category.${category}`)}
+								</option>
+							))}
+						</Select>
+					</label>
 
-				<label className='block space-y-1.5'>
-					<span className='text-xs font-medium text-ink-600 dark:text-ink-300'>{t("campaigns.setup.language")} *</span>
-					<Select
-						value={draft.language}
-						onChange={(event) => onChange({ language: event.target.value })}
-						mobileLabel={LANGUAGES.find((language) => language.code === draft.language)?.label ?? ""}
-						aria-label={t("campaigns.setup.language")}>
-						{LANGUAGES.map((language) => (
-							<option key={language.code} value={language.code}>
-								{language.label}
-							</option>
-						))}
-					</Select>
-				</label>
+					<label className='block space-y-1.5'>
+						<span className='text-xs font-medium text-ink-600 dark:text-ink-300'>
+							{t("campaigns.setup.language")} *
+						</span>
+						<Select
+							value={draft.language}
+							onChange={(event) => onChange({ language: event.target.value })}
+							mobileLabel={LANGUAGES.find((language) => language.code === draft.language)?.label ?? ""}
+							aria-label={t("campaigns.setup.language")}>
+							{LANGUAGES.map((language) => (
+								<option key={language.code} value={language.code}>
+									{language.label}
+								</option>
+							))}
+						</Select>
+					</label>
+				</div>
 
 				<div className='overflow-hidden rounded-xl border border-ink-200 dark:border-ink-700'>
 					<div className='flex items-center gap-2 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-100'>
@@ -234,15 +238,6 @@ export function TemplateSetup({ draft, onChange, onSaveDraft, onUseTemplate }: P
 					</Part>
 				</div>
 			</div>
-
-			<footer className='grid grid-cols-2 gap-2 border-t border-ink-100 p-4 dark:border-ink-700'>
-				<button type='button' className='btn-secondary justify-center' onClick={onSaveDraft}>
-					{t("campaigns.saveDraft")}
-				</button>
-				<button type='button' className='btn-primary justify-center' onClick={onUseTemplate}>
-					{t("campaigns.useTemplate")}
-				</button>
-			</footer>
 		</section>
 	)
 }

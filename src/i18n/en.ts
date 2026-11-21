@@ -970,7 +970,9 @@ const en = {
 			subtitle: "See how your message will look and choose when to send it.",
 			business: "Your Business",
 			businessAccount: "Business Account",
-			today: "Today"
+			today: "Today",
+			open: "Preview",
+			close: "Close"
 		},
 		schedule: {
 			title: "Scheduling",
@@ -980,6 +982,27 @@ const en = {
 			laterHint: "Choose a date and time to send.",
 			pickDate: "Pick a date",
 			pickTime: "Pick a time"
+		},
+		next: "Next",
+		back: "Back",
+		send: "Send Campaign",
+		scheduleCta: "Schedule Campaign",
+		sent: "Campaign sent to {n} recipients",
+		scheduled: "Campaign scheduled for {n} recipients",
+		steps: {
+			template: "Template",
+			recipients: "Recipients",
+			schedule: "Review & Send"
+		},
+		summary: {
+			title: "Campaign summary",
+			name: "Name",
+			category: "Category",
+			language: "Language",
+			recipients: "Recipients",
+			when: "Delivery",
+			now: "Immediately",
+			at: "{date} at {time}"
 		}
 	}
 }

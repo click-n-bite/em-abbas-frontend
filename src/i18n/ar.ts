@@ -912,7 +912,7 @@ const ar: Dictionary = {
 	},
 	campaigns: {
 		createTitle: "إنشاء حملة",
-		createSubtitle: "قم بإعداد القالب، واختر المستلمين، ثم أرسل حملتك.",
+		createSubtitle: "قم بإعداد القالب، واختيار المستلمين، وإرسال الحملة.",
 		optional: "اختياري",
 		required: "مطلوب",
 		saveDraft: "حفظ كمسودة",
@@ -922,31 +922,31 @@ const ar: Dictionary = {
 		draftSaved: "تم حفظ المسودة",
 		templateApplied: "تم تطبيق القالب",
 		testSent: "تم إرسال الرسالة التجريبية",
-		readyToReview: "الحملة جاهزة للإرسال إلى {n} مستلم",
+		readyToReview: "الحملة جاهزة للمراجعة لـ {n} مستلم",
 		errors: {
 			name: "يرجى إدخال اسم الحملة",
 			body: "يرجى كتابة نص الرسالة",
 			recipients: "يرجى اختيار مستلم واحد على الأقل",
-			schedule: "يرجى تحديد تاريخ الإرسال"
+			schedule: "يرجى اختيار تاريخ الإرسال"
 		},
 		category: {
 			marketing: "تسويقية",
 			utility: "خدمية",
-			authentication: "المصادقة"
+			authentication: "مصادقة"
 		},
 		setup: {
 			title: "إعداد القالب",
-			subtitle: "حدد تفاصيل حملتك وقالب الرسالة.",
+			subtitle: "حدّد تفاصيل الحملة وقالب الرسالة.",
 			name: "اسم الحملة",
-			namePlaceholder: "مثال: حملة عروض شهر نوفمبر",
+			namePlaceholder: "مثال: حملة عروض شهر تشرين الثاني",
 			category: "فئة القالب",
 			language: "اللغة",
 			messageTemplate: "قالب الرسالة",
 			body: "نص الرسالة",
 			bodyPart: "المحتوى",
 			insertName: "إدراج الاسم {{1}}",
-			header: "العنوان",
-			headerPlaceholder: "نص العنوان",
+			header: "الترويسة",
+			headerPlaceholder: "نص الترويسة",
 			footer: "التذييل",
 			footerPlaceholder: "نص التذييل",
 			buttons: "الأزرار",
@@ -957,16 +957,16 @@ const ar: Dictionary = {
 		recipients: {
 			title: "المستلمون",
 			subtitle: "اختر الأشخاص الذين ستصل إليهم هذه الحملة.",
-			tabImport: "استيراد المستخدمين",
-			tabExisting: "اختيار مستخدمين موجودين",
+			tabImport: "استيراد جهات الاتصال",
+			tabExisting: "اختيار جهات الاتصال",
 			tabSegments: "الشرائح",
 			uploadTitle: "رفع ملف CSV",
-			uploadHint: "اسحب الملف وأفلته هنا، أو انقر لاستعراض الملفات",
+			uploadHint: "اسحب الملف وأفلته هنا، أو اضغط لاختياره",
 			chooseFile: "اختيار ملف",
-			formats: "CSV: الاسم، رقم الهاتف، الوسوم • الحد الأقصى للحجم 10 ميغابايت",
-			tooLarge: "حجم الملف أكبر من 10 ميغابايت",
-			csvOnly: "ملفات CSV فقط مدعومة حاليًا",
-			noRows: "لم يتم العثور على بيانات صالحة في الملف",
+			formats: "CSV: الاسم، رقم الهاتف • الحد الأقصى 10 ميغابايت",
+			tooLarge: "حجم الملف يتجاوز 10 ميغابايت",
+			csvOnly: "يُسمح حاليًا بملفات CSV فقط",
+			noRows: "لم يتم العثور على جهات اتصال صالحة في الملف",
 			imported: "تم استيراد {n} جهة اتصال",
 			searchPlaceholder: "ابحث بالاسم أو رقم الهاتف",
 			selectSegment: "اختيار",
@@ -981,10 +981,12 @@ const ar: Dictionary = {
 		},
 		preview: {
 			title: "معاينة وإرسال",
-			subtitle: "شاهد كيف ستظهر رسالتك واختر موعد إرسالها.",
+			subtitle: "شاهد شكل رسالتك واختر موعد إرسالها.",
 			business: "نشاطك التجاري",
 			businessAccount: "حساب الأعمال",
-			today: "اليوم"
+			today: "اليوم",
+			open: "معاينة",
+			close: "إغلاق"
 		},
 		schedule: {
 			title: "جدولة الإرسال",
@@ -994,6 +996,27 @@ const ar: Dictionary = {
 			laterHint: "اختر تاريخ ووقت الإرسال.",
 			pickDate: "اختر التاريخ",
 			pickTime: "اختر الوقت"
+		},
+		next: "التالي",
+		back: "رجوع",
+		send: "إرسال الحملة",
+		scheduleCta: "جدولة الحملة",
+		sent: "تم إرسال الحملة إلى {n} مستلم",
+		scheduled: "تمت جدولة الحملة لـ {n} مستلم",
+		steps: {
+			template: "القالب",
+			recipients: "المستلمون",
+			schedule: "المراجعة والإرسال"
+		},
+		summary: {
+			title: "ملخص الحملة",
+			name: "الاسم",
+			category: "الفئة",
+			language: "اللغة",
+			recipients: "المستلمون",
+			when: "موعد الإرسال",
+			now: "فورًا",
+			at: "{date} الساعة {time}"
 		}
 	}
 }

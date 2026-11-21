@@ -42,6 +42,7 @@ export const MOCK_CONTACTS: CampaignContact[] = Array.from({ length: 32 }, (_, i
 	tags: TAG_SETS[i % TAG_SETS.length]
 }))
 
+/** Minimal CSV reader: name,phone,tags (tags separated by ; or |). */
 export function parseContactsCsv(text: string): CampaignContact[] {
 	const rows = text
 		.split(/\r?\n/)
@@ -77,6 +78,21 @@ export function validateDraft(draft: CampaignDraft, recipients: number): string 
 	if (recipients === 0) return "campaigns.errors.recipients"
 
 	if (draft.scheduleMode === "later" && !draft.scheduleDate) return "campaigns.errors.schedule"
+
+	return null
+}
+
+/** Returns an i18n error key for the given wizard step (0 template, 1 recipients, 2 schedule). */
+export function validateStep(step: number, draft: CampaignDraft, recipients: number): string | null {
+	if (step === 0) {
+		if (!draft.name.trim()) return "campaigns.errors.name"
+
+		if (!draft.body.trim()) return "campaigns.errors.body"
+	}
+
+	if (step === 1 && recipients === 0) return "campaigns.errors.recipients"
+
+	if (step === 2 && draft.scheduleMode === "later" && !draft.scheduleDate) return "campaigns.errors.schedule"
 
 	return null
 }
