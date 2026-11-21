@@ -833,7 +833,7 @@ export default function ConversationsPage() {
 					</button>
 				</div>
 			}>
-			<div className='grid h-full min-h-0 gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]'>
+			<div className='grid h-full min-h-0 gap-4 lg:grid-cols-[28rem_minmax(0,1fr)]'>
 				<div className={cn("card min-h-0 overflow-hidden", selected ? "hidden lg:block" : "block")}>
 					<ConversationList
 						conversations={filtered}

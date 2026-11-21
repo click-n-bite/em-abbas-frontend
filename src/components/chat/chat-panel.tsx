@@ -6,20 +6,14 @@ import {
 	AlertCircle,
 	ArrowLeft,
 	ArrowRight,
-	Ban,
 	Bot,
 	ChevronDown,
 	ChevronUp,
 	Contact,
 	Download,
-	Eraser,
 	ExternalLink,
-	Eye,
-	EyeOff,
 	FileText,
 	Headphones,
-	History,
-	Image as ImageIcon,
 	KeyRound,
 	ListChecks,
 	MapPin,
@@ -29,7 +23,6 @@ import {
 	MousePointerClick,
 	Paperclip,
 	Pencil,
-	Play,
 	Search,
 	Send,
 	SendHorizontal,
@@ -37,13 +30,13 @@ import {
 	Trash2,
 	Undo2,
 	UserRound,
-	UserRoundPlus,
 	Workflow,
 	X
 } from "lucide-react"
 import { adminApi, api, ApiError } from "@/lib/api"
 import { countryName, phoneCountryOf } from "@/lib/countries"
 import { CountryFlag } from "@/components/ui/country-flag"
+import { ChannelIcon } from "@/components/ui/channel-icon"
 import { errorDetail, errorKey } from "@/lib/errors"
 import { cn, colorFromString, textDirOf, uuid } from "@/lib/utils"
 import { useI18n } from "@/providers/i18n-provider"
@@ -56,11 +49,11 @@ import { Spinner } from "@/components/ui/spinner"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { BlockNumberFormModal } from "@/components/blocked-numbers/block-number-form-modal"
 import { LeadFormModal } from "@/components/leads/lead-form-modal"
-import { ActivityPanel } from "@/components/activity/activity-panel"
 import { CallBubble } from "@/components/voice/call-bubble"
 import { usePoll } from "@/hooks/use-poll"
 import { useRealtime, type ConnectionState } from "@/hooks/use-realtime"
 import { useVoiceEvents } from "@/hooks/use-voice-events"
+import { useMediaBlobUrl } from "@/hooks/use-media-blob-url"
 import { voiceApi } from "@/lib/features/voice/api"
 import type { VoiceCall } from "@/lib/features/voice/types"
 import type { Conversation, Message, RealtimeEvent } from "@/lib/types"
@@ -74,7 +67,7 @@ import {
 import { WhatsAppAudioPlayer } from "./audio-player"
 import { useRouter } from "next/navigation"
 import { TrustedStar } from "@/components/contacts/trusted-star"
-import { ChatContactBar } from "../contacts/chat-contact-bar"
+import { ContactInfoSidebar } from "./contact-sidebar"
 
 interface Props {
 	conversation: Conversation | null
@@ -90,17 +83,6 @@ const LIVE_CALL_STATUSES = ["incoming", "ringing", "in_progress"]
 
 function formatTimeAmPm(value: string | number | Date): string {
 	return new Intl.DateTimeFormat("en-US", {
-		hour: "numeric",
-		minute: "2-digit",
-		hour12: true
-	}).format(new Date(value))
-}
-
-function formatDateTimeAmPm(value: string | number | Date): string {
-	return new Intl.DateTimeFormat("en-US", {
-		month: "short",
-		day: "numeric",
-		year: "numeric",
 		hour: "numeric",
 		minute: "2-digit",
 		hour12: true
@@ -123,10 +105,8 @@ const URL_REGEX = /(?:https?:\/\/|www\.)[^\s<>"']+/gi
 
 const TRAILING_PUNCTUATION = /[.,;:!?)\]}'"،؛؟…]+$/
 
-// Within this distance of the bottom the chat keeps following new messages.
 const NEAR_BOTTOM_PX = 80
 
-// Further than this from the bottom, show the "jump to latest" button.
 const FAR_FROM_BOTTOM_PX = 400
 
 function agentKeyOf(message: Message): string | null {
@@ -253,104 +233,6 @@ function useVisualViewport(): { height: number; top: number } | null {
 	}, [])
 
 	return state
-}
-
-const MEDIA_BLOB_CACHE_MAX = 200
-
-const mediaBlobCache = new Map<string, string>()
-
-function getCachedMediaBlobUrl(mediaId: string): string | undefined {
-	const cached = mediaBlobCache.get(mediaId)
-
-	if (cached !== undefined) {
-		mediaBlobCache.delete(mediaId)
-		mediaBlobCache.set(mediaId, cached)
-	}
-
-	return cached
-}
-
-function setCachedMediaBlobUrl(mediaId: string, url: string): void {
-	const existing = mediaBlobCache.get(mediaId)
-
-	if (existing !== undefined) {
-		if (existing !== url) URL.revokeObjectURL(existing)
-
-		mediaBlobCache.delete(mediaId)
-	}
-
-	mediaBlobCache.set(mediaId, url)
-
-	if (mediaBlobCache.size > MEDIA_BLOB_CACHE_MAX) {
-		const oldestKey = mediaBlobCache.keys().next().value
-
-		if (oldestKey !== undefined) {
-			const oldestUrl = mediaBlobCache.get(oldestKey)
-
-			mediaBlobCache.delete(oldestKey)
-
-			if (oldestUrl) URL.revokeObjectURL(oldestUrl)
-		}
-	}
-}
-
-function useMediaBlobUrl(mediaId: string | null | undefined) {
-	const [url, setUrl] = useState<string | null>(() => (mediaId ? (getCachedMediaBlobUrl(mediaId) ?? null) : null))
-
-	const [loading, setLoading] = useState(false)
-
-	const [error, setError] = useState(false)
-
-	useEffect(() => {
-		if (!mediaId) {
-			setUrl(null)
-			setError(false)
-
-			return
-		}
-
-		const cached = getCachedMediaBlobUrl(mediaId)
-
-		if (cached) {
-			setUrl(cached)
-			setError(false)
-			setLoading(false)
-
-			return
-		}
-
-		let cancelled = false
-
-		const controller = new AbortController()
-
-		setLoading(true)
-		setError(false)
-
-		api
-			.mediaBlobUrl(mediaId, controller.signal)
-			.then((blobUrl) => {
-				setCachedMediaBlobUrl(mediaId, blobUrl)
-
-				if (cancelled) return
-
-				setUrl(blobUrl)
-			})
-			.catch((err) => {
-				if ((err as Error)?.name === "AbortError") return
-
-				if (!cancelled) setError(true)
-			})
-			.finally(() => {
-				if (!cancelled) setLoading(false)
-			})
-
-		return () => {
-			cancelled = true
-			controller.abort()
-		}
-	}, [mediaId])
-
-	return { url, loading, error }
 }
 
 function MessageMedia({ message, outbound }: { message: Message; outbound: boolean }) {
@@ -482,10 +364,6 @@ function LoadedMedia({
 }
 
 const RICH_TYPES = new Set(["buttons", "list", "template", "otp", "location", "contacts", "flow"])
-
-const VISUAL_MEDIA_TYPES = new Set(["image", "video", "sticker"])
-
-const FILE_MEDIA_TYPES = new Set(["document", "audio"])
 
 function RichBody({ message }: { message: Message }) {
 	if (!message.text) return null
@@ -706,223 +584,6 @@ function MessageTapHint({ message, outbound }: { message: Message; outbound: boo
 	)
 }
 
-function MediaThumb({ message, onOpen }: { message: Message; onOpen: () => void }) {
-	const { t } = useI18n()
-
-	const { url, loading, error } = useMediaBlobUrl(message.mediaId)
-
-	if (loading) {
-		return (
-			<div className='flex aspect-square items-center justify-center rounded-lg bg-ink-100 dark:bg-ink-900'>
-				<Spinner />
-			</div>
-		)
-	}
-
-	if (error || !url) {
-		return (
-			<div className='flex aspect-square flex-col items-center justify-center gap-1 rounded-lg bg-ink-100 p-2 text-center text-[10px] text-ink-400 dark:bg-ink-900'>
-				<AlertCircle className='h-4 w-4' aria-hidden='true' />
-				{t("chat.mediaFailed")}
-			</div>
-		)
-	}
-
-	if (message.type === "video") {
-		return (
-			<button
-				type='button'
-				onClick={onOpen}
-				className='group relative aspect-square overflow-hidden rounded-lg bg-black'
-				aria-label={t("chat.mediaPreview.video")}>
-				<video src={url} className='h-full w-full object-cover opacity-80 transition group-hover:opacity-60' muted />
-				<span className='absolute inset-0 flex items-center justify-center'>
-					<span className='flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white'>
-						<Play className='h-4 w-4 fill-current' aria-hidden='true' />
-					</span>
-				</span>
-			</button>
-		)
-	}
-
-	return (
-		<button
-			type='button'
-			onClick={onOpen}
-			className='group aspect-square overflow-hidden rounded-lg'
-			aria-label={message.filename ?? t("chat.image")}>
-			{/* eslint-disable-next-line @next/next/no-img-element -- blob: URL, next/image can't optimize it */}
-			<img
-				src={url}
-				alt={message.filename ?? t("chat.image")}
-				className='h-full w-full object-cover transition group-hover:opacity-90'
-			/>
-		</button>
-	)
-}
-
-function MediaLightbox({ message, onClose }: { message: Message; onClose: () => void }) {
-	const { t } = useI18n()
-
-	const { url, loading, error } = useMediaBlobUrl(message.mediaId)
-
-	return (
-		<div
-			className='fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4'
-			onClick={onClose}
-			role='dialog'
-			aria-modal='true'>
-			<div onClick={(event) => event.stopPropagation()} className='max-h-full max-w-full'>
-				{loading ? (
-					<Spinner />
-				) : error || !url ? (
-					<p className='text-sm text-white'>{t("chat.mediaFailed")}</p>
-				) : message.type === "video" ? (
-					<video src={url} controls autoPlay className='max-h-[85vh] max-w-full rounded-lg' />
-				) : (
-					// eslint-disable-next-line @next/next/no-img-element
-					<img src={url} alt={message.filename ?? t("chat.image")} className='max-h-[85vh] max-w-full rounded-lg' />
-				)}
-			</div>
-
-			<button
-				type='button'
-				onClick={onClose}
-				className='absolute end-4 top-4 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20'
-				aria-label={t("common.close")}>
-				<X className='h-5 w-5' aria-hidden='true' />
-			</button>
-		</div>
-	)
-}
-
-function MediaListItem({ message }: { message: Message }) {
-	const { t } = useI18n()
-
-	const { url, loading, error } = useMediaBlobUrl(message.mediaId)
-
-	if (message.type === "audio") {
-		return (
-			<div className='rounded-xl border border-ink-200 p-3 dark:border-ink-700'>
-				<div className='mb-2 flex items-center justify-between text-xs text-ink-500 dark:text-ink-400'>
-					<span className='flex items-center gap-1.5'>
-						<Mic className='h-3.5 w-3.5' aria-hidden='true' />
-						{t("chat.voiceMessage")}
-					</span>
-					<span dir='ltr'>{formatDateTimeAmPm(message.createdAt)}</span>
-				</div>
-
-				{loading ? (
-					<Spinner />
-				) : error || !url ? (
-					<p className='text-xs text-rose-500'>{t("chat.mediaFailed")}</p>
-				) : (
-					<WhatsAppAudioPlayer src={url} sentTime={formatDateTimeAmPm(message.createdAt)} />
-				)}
-			</div>
-		)
-	}
-
-	return (
-		<a
-			href={url ?? undefined}
-			download={message.filename ?? "file"}
-			className={cn(
-				"flex items-center gap-3 rounded-xl border border-ink-200 p-3 text-sm transition hover:bg-ink-50 dark:border-ink-700 dark:hover:bg-ink-700/40",
-				(!url || loading) && "pointer-events-none opacity-60"
-			)}>
-			<span className='flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-ink-100 text-ink-500 dark:bg-ink-900 dark:text-ink-300'>
-				{loading ? <Spinner /> : <FileText className='h-5 w-5' aria-hidden='true' />}
-			</span>
-			<span className='min-w-0 flex-1'>
-				<span className='block truncate font-medium text-ink-900 dark:text-ink-50'>
-					{message.filename ?? t("chat.download")}
-				</span>
-				<span dir='ltr' className='block text-xs text-ink-400'>
-					{formatDateTimeAmPm(message.createdAt)}
-				</span>
-			</span>
-			{error ? (
-				<AlertCircle className='h-4 w-4 flex-shrink-0 text-rose-500' aria-hidden='true' />
-			) : (
-				<Download className='h-4 w-4 flex-shrink-0 text-ink-400' aria-hidden='true' />
-			)}
-		</a>
-	)
-}
-
-function MediaTab({ messages }: { messages: Message[] }) {
-	const { t } = useI18n()
-
-	const [selected, setSelected] = useState<Message | null>(null)
-
-	const visualMedia = useMemo(
-		() =>
-			messages
-				.filter((message) => VISUAL_MEDIA_TYPES.has(message.type) && message.mediaId)
-				.slice()
-				.reverse(),
-		[messages]
-	)
-
-	const fileMedia = useMemo(
-		() =>
-			messages
-				.filter((message) => FILE_MEDIA_TYPES.has(message.type) && message.mediaId)
-				.slice()
-				.reverse(),
-		[messages]
-	)
-
-	if (visualMedia.length === 0 && fileMedia.length === 0) {
-		return (
-			<div className='flex min-h-0 flex-1 items-center justify-center p-6'>
-				<EmptyState icon={<ImageIcon className='h-5 w-5' aria-hidden='true' />} title={t("chat.mediaEmpty")} />
-			</div>
-		)
-	}
-
-	return (
-		<div className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-6'>
-			{visualMedia.length > 0 ? (
-				<section className='mb-6'>
-					<h3 className='mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-400'>
-						<ImageIcon className='h-3.5 w-3.5' aria-hidden='true' />
-						{t("chat.mediaImages")}
-						<span className='badge bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200'>
-							{visualMedia.length}
-						</span>
-					</h3>
-
-					<div className='grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5'>
-						{visualMedia.map((message) => (
-							<MediaThumb key={message.id} message={message} onOpen={() => setSelected(message)} />
-						))}
-					</div>
-				</section>
-			) : null}
-
-			{fileMedia.length > 0 ? (
-				<section>
-					<h3 className='mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-400'>
-						<FileText className='h-3.5 w-3.5' aria-hidden='true' />
-						{t("chat.mediaDocuments")}
-						<span className='badge bg-ink-100 text-ink-600 dark:bg-ink-700 dark:text-ink-200'>{fileMedia.length}</span>
-					</h3>
-
-					<div className='flex flex-col gap-2'>
-						{fileMedia.map((message) => (
-							<MediaListItem key={message.id} message={message} />
-						))}
-					</div>
-				</section>
-			) : null}
-
-			{selected ? <MediaLightbox message={selected} onClose={() => setSelected(null)} /> : null}
-		</div>
-	)
-}
-
 export function ChatPanel({ conversation, onConversationChange, onBack, onToggleHide }: Props) {
 	const { t, dir, locale } = useI18n()
 
@@ -964,8 +625,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 
 	const [modeBusy, setModeBusy] = useState(false)
 
-	const [menuOpen, setMenuOpen] = useState(false)
-
 	const [blockModalOpen, setBlockModalOpen] = useState(false)
 
 	const [, setPendingDelete] = useState(false)
@@ -978,7 +637,7 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 
 	const [hideBusy, setHideBusy] = useState(false)
 
-	const [activeTab, setActiveTab] = useState<"messages" | "media" | "activity">("messages")
+	const [infoOpen, setInfoOpen] = useState(false)
 
 	const [searchOpen, setSearchOpen] = useState(false)
 
@@ -994,18 +653,13 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 
 	const [renaming, setRenaming] = useState(false)
 
-	// Messages that arrived while the agent was scrolled away from the bottom.
 	const [unseenCount, setUnseenCount] = useState(0)
 
-	// The first of those messages — the "New messages" line is drawn above it.
 	const [, setDividerId] = useState<string | null>(null)
 
-	// True when the agent is far enough up that a "jump to latest" button helps.
 	const [showJump, setShowJump] = useState(false)
 
 	const messageRefs = useRef(new Map<string, HTMLDivElement>())
-
-	const menuRef = useRef<HTMLDivElement>(null)
 
 	const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -1013,17 +667,12 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 
 	const conversationId = conversation?.id ?? null
 
-	// True while the agent hasn't scrolled away from the bottom. Only then do we
-	// follow new messages / content growth; otherwise the view stays put.
 	const pinnedToBottomRef = useRef(true)
 
 	const unseenCountRef = useRef(0)
 
 	unseenCountRef.current = unseenCount
 
-	// Ids (and client ids) of every message we have already seen, so a message
-	// that arrives through realtime AND catch-up is only counted once, and our
-	// own optimistic sends are never counted as "new".
 	const knownMessagesRef = useRef<Set<string>>(new Set())
 
 	const lastSearchScrollKeyRef = useRef("")
@@ -1047,7 +696,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 		}
 	}, [])
 
-	// Returns only the messages we haven't seen before, and remembers them.
 	const takeArrivals = useCallback(
 		(list: Message[]): Message[] => {
 			const fresh = list.filter(
@@ -1063,9 +711,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 		[rememberMessages]
 	)
 
-	// New messages: follow them only if the agent is at the bottom. If they are
-	// reading higher up (or searching), don't move — count them and mark where
-	// the new messages start instead.
 	const handleArrivals = useCallback(
 		(added: Message[]) => {
 			if (added.length === 0) return
@@ -1123,7 +768,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 			pinnedToBottomRef.current = near
 			setShowJump(distanceFromBottom > FAR_FROM_BOTTOM_PX)
 
-			// Back at the bottom: the new messages have been seen.
 			if (near) {
 				unseenCountRef.current = 0
 				setUnseenCount((current) => (current === 0 ? current : 0))
@@ -1133,20 +777,7 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 		node.addEventListener("scroll", updatePinned, { passive: true })
 
 		return () => node.removeEventListener("scroll", updatePinned)
-	}, [conversationId, activeTab])
-
-	// Coming back to the Messages tab lands on the latest message.
-	useEffect(() => {
-		if (activeTab !== "messages") return
-
-		pinnedToBottomRef.current = true
-		unseenCountRef.current = 0
-		setUnseenCount(0)
-
-		const timer = window.setTimeout(() => scrollToEnd(false), 30)
-
-		return () => window.clearTimeout(timer)
-	}, [activeTab, scrollToEnd])
+	}, [conversationId])
 
 	const onConversationChangeRef = useRef(onConversationChange)
 
@@ -1182,7 +813,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 		if (conversationId) void loadCalls(conversationId)
 	}, [conversationId, loadCalls])
 
-	// A call starting, ringing, ending or being missed refreshes the thread.
 	useVoiceEvents({
 		topics: ["/topic/voice/calls"],
 		onRefresh: () => {
@@ -1200,7 +830,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 		Boolean(conversationId) && hasLiveCall
 	)
 
-	// Messages and calls in one list, oldest first.
 	const timeline = useMemo<TimelineItem[]>(
 		() =>
 			[
@@ -1254,11 +883,10 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 	}, [conversationId])
 
 	useEffect(() => {
-		setMenuOpen(false)
 		setBlockModalOpen(false)
 		setPendingDelete(false)
 		setPendingClear(false)
-		setActiveTab("messages")
+		setInfoOpen(false)
 		setSearchOpen(false)
 		setSearchQuery("")
 		setSearchActiveIndex(0)
@@ -1272,26 +900,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 		knownMessagesRef.current = new Set()
 		lastSearchScrollKeyRef.current = ""
 	}, [conversationId])
-
-	useEffect(() => {
-		if (!menuOpen) return
-
-		const onPointerDown = (event: MouseEvent) => {
-			if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false)
-		}
-
-		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key === "Escape") setMenuOpen(false)
-		}
-
-		document.addEventListener("mousedown", onPointerDown)
-		document.addEventListener("keydown", onKeyDown)
-
-		return () => {
-			document.removeEventListener("mousedown", onPointerDown)
-			document.removeEventListener("keydown", onKeyDown)
-		}
-	}, [menuOpen])
 
 	useEffect(() => {
 		if (!conversationId) {
@@ -1312,7 +920,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 		api
 			.messages(conversationId, { markRead: true, signal: controller.signal })
 			.then((list) => {
-				// The initial thread is not "new".
 				rememberMessages(list)
 				setMessages((prev) => mergeMessages(prev, list))
 				window.setTimeout(() => scrollToEnd(false), 30)
@@ -1427,7 +1034,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 
 				setMessages((prev) => mergeMessages(prev, [incoming]))
 
-				// Follows the message only when the agent is at the bottom.
 				handleArrivals(added)
 
 				const receivedAt = message.createdAt && !Number.isNaN(Date.parse(message.createdAt)) ? message.createdAt : null
@@ -1655,16 +1261,11 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 			.map((message) => message.id)
 	}, [messages, trimmedSearchQuery])
 
-	// Jump to the last match only when the QUERY changes — not every time a new
-	// matching message arrives (that would yank the view while reading).
 	useEffect(() => {
 		setSearchActiveIndex(searchMatches.length > 0 ? searchMatches.length - 1 : 0)
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [trimmedSearchQuery])
 
-	// Scroll ONLY the message list, and only when the query or the active match
-	// actually changed. Incoming messages / status updates re-create
-	// `searchMatches`, which must not re-scroll the view.
 	useEffect(() => {
 		if (!searchOpen || searchMatches.length === 0) {
 			lastSearchScrollKeyRef.current = ""
@@ -1965,7 +1566,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 		return `${minutes}:${String(seconds).padStart(2, "0")}`
 	}
 
-	// The agent sending something always follows it to the bottom.
 	const followOwnMessage = () => {
 		pinnedToBottomRef.current = true
 		unseenCountRef.current = 0
@@ -2052,7 +1652,7 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 		node.addEventListener("beforeinput", onBeforeInput)
 
 		return () => node.removeEventListener("beforeinput", onBeforeInput)
-	}, [conversationId, canReply, recording, activeTab, blocked, lockedReason])
+	}, [conversationId, canReply, recording, blocked, lockedReason])
 
 	const MAX_MEDIA_BYTES = 16 * 1024 * 1024
 
@@ -2165,7 +1765,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 			})
 			push(t("chat.blockedContact"), "success")
 			setBlockModalOpen(false)
-			setMenuOpen(false)
 		} catch (error) {
 			push(errorDetail(error) ?? t(errorKey(error)), "error")
 		}
@@ -2217,7 +1816,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 		const hide = !conversation.hidden
 
 		setHideBusy(true)
-		setMenuOpen(false)
 
 		try {
 			if (onToggleHide) {
@@ -2242,7 +1840,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 			await api.createLead(payload)
 			push(t("chat.leadAdded"), "success")
 			setLeadModalOpen(false)
-			setMenuOpen(false)
 		} catch (error) {
 			if (error instanceof ApiError && error.status === 409) {
 				push(t("chat.leadAlreadyOpen"), "error")
@@ -2270,8 +1867,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 			push(t("chat.messagesCleared"), "success")
 		} catch (error) {
 			push(errorDetail(error) ?? t(errorKey(error)), "error")
-		} finally {
-			setMenuOpen(false)
 		}
 	}
 
@@ -2314,323 +1909,203 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 
 	return (
 		<div
-			className='flex h-full flex-col overflow-hidden bg-white dark:bg-ink-800 max-lg:fixed max-lg:inset-x-0 max-lg:top-0 max-lg:z-30'
+			className='flex h-full overflow-hidden bg-white dark:bg-ink-800 max-lg:fixed max-lg:inset-x-0 max-lg:top-0 max-lg:z-30'
 			style={visualViewport ? { height: visualViewport.height, top: visualViewport.top } : undefined}>
-			<header className='flex flex-shrink-0 flex-col gap-2 border-b border-ink-200 p-3 dark:border-ink-700 lg:flex-row lg:items-center lg:gap-3'>
-				<div className='flex min-w-0 items-center gap-3'>
-					{onBack ? (
+			<div className='flex h-full min-w-0 flex-1 flex-col'>
+				<header className='flex flex-shrink-0 flex-col gap-2 border-b border-ink-200 p-3 dark:border-ink-700 lg:flex-row lg:items-center lg:gap-3'>
+					<div className='flex min-w-0 items-center gap-3'>
+						{onBack ? (
+							<button
+								type='button'
+								onClick={onBack}
+								aria-label={t("chat.back")}
+								title={t("chat.back")}
+								className='btn-ghost -ms-1 flex-shrink-0 p-2 lg:hidden'>
+								{dir === "rtl" ? (
+									<ArrowRight className='h-4 w-4' aria-hidden='true' />
+								) : (
+									<ArrowLeft className='h-4 w-4' aria-hidden='true' />
+								)}
+							</button>
+						) : null}
 						<button
 							type='button'
-							onClick={onBack}
-							aria-label={t("chat.back")}
-							title={t("chat.back")}
-							className='btn-ghost -ms-1 flex-shrink-0 p-2 lg:hidden'>
-							{dir === "rtl" ? (
-								<ArrowRight className='h-4 w-4' aria-hidden='true' />
-							) : (
-								<ArrowLeft className='h-4 w-4' aria-hidden='true' />
-							)}
+							onClick={() => setInfoOpen(true)}
+							className='relative flex-shrink-0 rounded-full'
+							aria-label={t("chat.info.title")}
+							title={t("chat.info.title")}>
+							<Avatar name={conversation.customerName} seed={conversation.id} />
+							<ChannelIcon
+								channel={conversation.channel}
+								size='xs'
+								className='absolute -bottom-0.5 -start-0.5 ring-2 ring-white dark:ring-ink-800'
+							/>
 						</button>
-					) : null}
-					<Avatar name={conversation.customerName} seed={conversation.id} />
-					<div className='min-w-0 flex-1'>
-						<div className='flex items-center gap-1.5'>
-							<p
-								dir={textDirOf(conversation.customerName)}
-								className='truncate text-sm font-semibold text-ink-900 dark:text-ink-50'>
-								{contactNameWithCountry(conversation)}
-							</p>
-							{conversation.contact?.trusted ? <TrustedStar /> : null}
-							<button
-								type='button'
-								onClick={openRenameModal}
-								className='btn-ghost h-6 w-6 flex-shrink-0 p-0'
-								aria-label={t("chat.renameContact")}
-								title={t("chat.renameContact")}>
-								<Pencil className='h-3.5 w-3.5' aria-hidden='true' />
-							</button>
-						</div>
-						<p className='flex min-w-0 items-center gap-1 truncate text-xs text-ink-500 dark:text-ink-400' dir='ltr'>
-							{phoneCountry ? (
-								<span className='shrink-0' title={phoneCountry.name}>
-									<CountryFlag code={phoneCountry.code} />
+						<div className='min-w-0 flex-1'>
+							<div className='flex items-center gap-1.5'>
+								<p
+									dir={textDirOf(conversation.customerName)}
+									className='truncate text-sm font-semibold text-ink-900 dark:text-ink-50'>
+									{contactNameWithCountry(conversation)}
+								</p>
+								{conversation.contact?.trusted ? <TrustedStar /> : null}
+								<button
+									type='button'
+									onClick={openRenameModal}
+									className='btn-ghost h-6 w-6 flex-shrink-0 p-0'
+									aria-label={t("chat.renameContact")}
+									title={t("chat.renameContact")}>
+									<Pencil className='h-3.5 w-3.5' aria-hidden='true' />
+								</button>
+							</div>
+							<p className='flex min-w-0 items-center gap-1 truncate text-xs text-ink-500 dark:text-ink-400' dir='ltr'>
+								{phoneCountry ? (
+									<span className='shrink-0' title={phoneCountry.name}>
+										<CountryFlag code={phoneCountry.code} />
+									</span>
+								) : null}
+								<span className='truncate'>
+									{!conversation.phone ? `${t("identity.whatsappId")}: ` : ""}
+									<bdi>{contactIdentifier(conversation)}</bdi>
 								</span>
-							) : null}
-							<span className='truncate'>
-								{!conversation.phone ? `${t("identity.whatsappId")}: ` : ""}
-								<bdi>{contactIdentifier(conversation)}</bdi>
-							</span>
-						</p>
-					</div>
-				</div>
-
-				<div className='flex flex-wrap items-center justify-end gap-2 ps-1 lg:ms-auto lg:flex-nowrap lg:ps-0'>
-					<ModeBadge mode={conversation.mode} />
-
-					{blocked ? (
-						<span
-							className='badge bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-200'
-							title={t(conversation.identityBlocked ? "identity.localBlockHint" : "chat.blockedBadgeHint")}>
-							<ShieldOff className='h-3 w-3' aria-hidden='true' />
-							{t(
-								conversation.identityBlocked
-									? "identity.localBlocked"
-									: conversation.whatsappStatus === "blocked"
-										? "chat.blockedBadge"
-										: conversation.whatsappStatus === "failed" || conversation.whatsappStatus === "unblocked"
-											? "chat.blockedBadgeLocalOnly"
-											: "chat.blockedBadgePending"
-							)}
-						</span>
-					) : null}
-
-					{connectionState !== "connected" ? (
-						<span
-							className='flex items-center gap-1 text-[11px] text-ink-400'
-							title={t(connectionState === "connecting" ? "chat.reconnecting" : "chat.offlinePolling")}>
-							<span className='h-1.5 w-1.5 rounded-full bg-amber-500' aria-hidden='true' />
-							{t(connectionState === "connecting" ? "chat.reconnecting" : "chat.offlinePolling")}
-						</span>
-					) : null}
-
-					{!canChangeMode ? null : conversation.mode === "agent" && mine ? (
-						<button type='button' className='btn-secondary' onClick={() => changeMode("handoff")} disabled={modeBusy}>
-							{modeBusy ? <Spinner /> : <Undo2 className='h-4 w-4' aria-hidden='true' />}
-							{modeBusy ? t("chat.handingOff") : t("chat.handoff")}
-						</button>
-					) : conversation.mode !== "agent" ? (
-						<button type='button' className='btn-primary' onClick={() => changeMode("takeover")} disabled={modeBusy}>
-							{modeBusy ? <Spinner /> : <Headphones className='h-4 w-4' aria-hidden='true' />}
-							{modeBusy ? t("chat.takingOver") : t("chat.takeover")}
-						</button>
-					) : null}
-
-					<button
-						type='button'
-						className='btn-secondary px-2.5'
-						onClick={() => {
-							if (searchOpen) closeSearch()
-							else setSearchOpen(true)
-						}}
-						aria-pressed={searchOpen}
-						aria-label={t("chat.search")}
-						title={t("chat.search")}>
-						<Search className='h-4 w-4' aria-hidden='true' />
-					</button>
-
-					<button
-						type='button'
-						className='btn-secondary px-2.5'
-						onClick={() => setLeadModalOpen(true)}
-						aria-label={t("chat.addLead")}
-						title={t("chat.addLead")}>
-						<UserRoundPlus className='h-4 w-4' aria-hidden='true' />
-						<span className='hidden lg:inline'>{t("chat.addLead")}</span>
-					</button>
-
-					{canManageBlockedNumbers || canManageUsers ? (
-						<div ref={menuRef} className='relative'>
-							<button
-								type='button'
-								className='btn-secondary px-2.5'
-								onClick={() => setMenuOpen((value) => !value)}
-								aria-haspopup='menu'
-								aria-expanded={menuOpen}
-								aria-label={t("chat.moreActions")}
-								title={t("chat.moreActions")}>
-								<MoreVertical className='h-4 w-4' aria-hidden='true' />
-							</button>
-
-							{menuOpen ? (
-								<div
-									role='menu'
-									className='absolute end-0 z-20 mt-2 w-56 overflow-hidden rounded-xl border border-ink-200 bg-white py-1 shadow-lg dark:border-ink-700 dark:bg-ink-800'>
-									<button
-										type='button'
-										role='menuitem'
-										disabled={blocked || (!conversation.phone && !canManageUsers)}
-										title={!conversation.phone && !canManageUsers ? t("identity.adminOnly") : undefined}
-										onClick={() => {
-											setBlockModalOpen(true)
-											setMenuOpen(false)
-										}}
-										className='flex w-full items-center gap-2 px-3 py-2 text-start text-sm text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-ink-200 dark:hover:bg-ink-700'>
-										<Ban className='h-4 w-4' aria-hidden='true' />
-										{blocked ? t("chat.contactAlreadyBlocked") : t("chat.blockContact")}
-									</button>
-
-									{canManageUsers ? (
-										<>
-											<button
-												type='button'
-												role='menuitem'
-												disabled={hideBusy}
-												onClick={() => void handleToggleHide()}
-												className='flex w-full items-center gap-2 px-3 py-2 text-start text-sm text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-ink-200 dark:hover:bg-ink-700'>
-												{hideBusy ? (
-													<Spinner />
-												) : conversation.hidden ? (
-													<Eye className='h-4 w-4' aria-hidden='true' />
-												) : (
-													<EyeOff className='h-4 w-4' aria-hidden='true' />
-												)}
-												{t(conversation.hidden ? "chat.unhideConversation" : "chat.hideConversation")}
-											</button>
-
-											<button
-												type='button'
-												role='menuitem'
-												onClick={() => {
-													setPendingClear(true)
-													setMenuOpen(false)
-												}}
-												className='flex w-full items-center gap-2 px-3 py-2 text-start text-sm text-ink-700 transition hover:bg-ink-50 dark:text-ink-200 dark:hover:bg-ink-700'>
-												<Eraser className='h-4 w-4' aria-hidden='true' />
-												{t("chat.clearMessages")}
-											</button>
-										</>
-									) : null}
-								</div>
-							) : null}
+							</p>
 						</div>
-					) : null}
-				</div>
-			</header>
+					</div>
 
-			<div
-				role='tablist'
-				className='flex flex-shrink-0 gap-1 border-b border-ink-200 bg-white px-3 pt-2 dark:border-ink-700 dark:bg-ink-800'>
-				<button
-					type='button'
-					role='tab'
-					aria-selected={activeTab === "messages"}
-					onClick={() => setActiveTab("messages")}
-					className={cn(
-						"flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition",
-						activeTab === "messages"
-							? "border-b-2 border-brand-600 text-brand-700 dark:text-brand-300"
-							: "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100"
-					)}>
-					<MessageSquare className='h-3.5 w-3.5' aria-hidden='true' />
-					{t("chat.tabMessages")}
-				</button>
+					<div className='flex flex-wrap items-center justify-end gap-2 ps-1 lg:ms-auto lg:flex-nowrap lg:ps-0'>
+						<ModeBadge mode={conversation.mode} />
 
-				<button
-					type='button'
-					role='tab'
-					aria-selected={activeTab === "media"}
-					onClick={() => setActiveTab("media")}
-					className={cn(
-						"flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition",
-						activeTab === "media"
-							? "border-b-2 border-brand-600 text-brand-700 dark:text-brand-300"
-							: "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100"
-					)}>
-					<ImageIcon className='h-3.5 w-3.5' aria-hidden='true' />
-					{t("chat.tabMedia")}
-				</button>
+						{blocked ? (
+							<span
+								className='badge bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-200'
+								title={t(conversation.identityBlocked ? "identity.localBlockHint" : "chat.blockedBadgeHint")}>
+								<ShieldOff className='h-3 w-3' aria-hidden='true' />
+								{t(
+									conversation.identityBlocked
+										? "identity.localBlocked"
+										: conversation.whatsappStatus === "blocked"
+											? "chat.blockedBadge"
+											: conversation.whatsappStatus === "failed" || conversation.whatsappStatus === "unblocked"
+												? "chat.blockedBadgeLocalOnly"
+												: "chat.blockedBadgePending"
+								)}
+							</span>
+						) : null}
 
-				{canManageUsers ? (
-					<button
-						type='button'
-						role='tab'
-						aria-selected={activeTab === "activity"}
-						onClick={() => setActiveTab("activity")}
-						className={cn(
-							"flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition",
-							activeTab === "activity"
-								? "border-b-2 border-brand-600 text-brand-700 dark:text-brand-300"
-								: "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-100"
-						)}>
-						<History className='h-3.5 w-3.5' aria-hidden='true' />
-						{t("chat.tabActivity")}
-					</button>
+						{connectionState !== "connected" ? (
+							<span
+								className='flex items-center gap-1 text-[11px] text-ink-400'
+								title={t(connectionState === "connecting" ? "chat.reconnecting" : "chat.offlinePolling")}>
+								<span className='h-1.5 w-1.5 rounded-full bg-amber-500' aria-hidden='true' />
+								{t(connectionState === "connecting" ? "chat.reconnecting" : "chat.offlinePolling")}
+							</span>
+						) : null}
+
+						{!canChangeMode ? null : conversation.mode === "agent" && mine ? (
+							<button type='button' className='btn-secondary' onClick={() => changeMode("handoff")} disabled={modeBusy}>
+								{modeBusy ? <Spinner /> : <Undo2 className='h-4 w-4' aria-hidden='true' />}
+								{modeBusy ? t("chat.handingOff") : t("chat.handoff")}
+							</button>
+						) : conversation.mode !== "agent" ? (
+							<button type='button' className='btn-primary' onClick={() => changeMode("takeover")} disabled={modeBusy}>
+								{modeBusy ? <Spinner /> : <Headphones className='h-4 w-4' aria-hidden='true' />}
+								{modeBusy ? t("chat.takingOver") : t("chat.takeover")}
+							</button>
+						) : null}
+
+						<button
+							type='button'
+							className='btn-secondary px-2.5'
+							onClick={() => {
+								if (searchOpen) closeSearch()
+								else setSearchOpen(true)
+							}}
+							aria-pressed={searchOpen}
+							aria-label={t("chat.search")}
+							title={t("chat.search")}>
+							<Search className='h-4 w-4' aria-hidden='true' />
+						</button>
+
+						<button
+							type='button'
+							className='btn-secondary px-2.5'
+							onClick={() => setInfoOpen((value) => !value)}
+							aria-pressed={infoOpen}
+							aria-label={t("chat.info.title")}
+							title={t("chat.info.title")}>
+							<MoreVertical className='h-4 w-4' aria-hidden='true' />
+						</button>
+					</div>
+				</header>
+
+				{searchOpen ? (
+					<div className='flex flex-shrink-0 items-center gap-2 border-b border-ink-200 bg-white px-3 py-2 dark:border-ink-700 dark:bg-ink-800'>
+						<Search className='h-4 w-4 flex-shrink-0 text-ink-400' aria-hidden='true' />
+						<input
+							autoFocus
+							value={searchQuery}
+							onChange={(event) => setSearchQuery(event.target.value)}
+							onKeyDown={(event) => {
+								if (event.key === "Enter") {
+									event.preventDefault()
+
+									if (event.shiftKey) goToPreviousMatch()
+									else goToNextMatch()
+								}
+
+								if (event.key === "Escape") closeSearch()
+							}}
+							placeholder={t("chat.searchPlaceholder")}
+							aria-label={t("chat.searchPlaceholder")}
+							className='input h-8 flex-1 py-1 text-base lg:text-sm'
+						/>
+						<span className='flex-shrink-0 whitespace-nowrap text-xs text-ink-400'>
+							{trimmedSearchQuery
+								? searchMatches.length > 0
+									? t("chat.searchResultCount", {
+											current: searchActiveIndex + 1,
+											total: searchMatches.length
+										})
+									: t("chat.searchNoResults")
+								: null}
+						</span>
+						<button
+							type='button'
+							className='btn-ghost h-8 w-8 flex-shrink-0 p-0'
+							onClick={goToPreviousMatch}
+							disabled={searchMatches.length === 0}
+							aria-label={t("chat.searchPrevious")}
+							title={t("chat.searchPrevious")}>
+							<ChevronUp className='h-4 w-4' aria-hidden='true' />
+						</button>
+						<button
+							type='button'
+							className='btn-ghost h-8 w-8 flex-shrink-0 p-0'
+							onClick={goToNextMatch}
+							disabled={searchMatches.length === 0}
+							aria-label={t("chat.searchNext")}
+							title={t("chat.searchNext")}>
+							<ChevronDown className='h-4 w-4' aria-hidden='true' />
+						</button>
+						<button
+							type='button'
+							className='btn-ghost h-8 w-8 flex-shrink-0 p-0'
+							onClick={closeSearch}
+							aria-label={t("chat.searchClose")}
+							title={t("chat.searchClose")}>
+							<X className='h-4 w-4' aria-hidden='true' />
+						</button>
+					</div>
 				) : null}
 
-				<button
-					type='button'
-					onClick={openLeads}
-					aria-label={t("leads.title")}
-					title={t("leads.title")}
-					className='mb-1 ms-auto flex items-center gap-1.5 rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-medium text-ink-600 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 dark:border-ink-600 dark:text-ink-300 dark:hover:border-brand-700 dark:hover:bg-brand-900/30 dark:hover:text-brand-300'>
-					<ListChecks className='h-3.5 w-3.5' aria-hidden='true' />
-					<span>{t("leads.title")}</span>
-				</button>
-			</div>
-			<ChatContactBar conversation={conversation} onConversationChange={onConversationChange} />
-			{searchOpen && activeTab === "messages" ? (
-				<div className='flex flex-shrink-0 items-center gap-2 border-b border-ink-200 bg-white px-3 py-2 dark:border-ink-700 dark:bg-ink-800'>
-					<Search className='h-4 w-4 flex-shrink-0 text-ink-400' aria-hidden='true' />
-					<input
-						autoFocus
-						value={searchQuery}
-						onChange={(event) => setSearchQuery(event.target.value)}
-						onKeyDown={(event) => {
-							if (event.key === "Enter") {
-								event.preventDefault()
+				{windowClosed && canReply ? (
+					<p
+						role='status'
+						className='border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100'>
+						{t("chat.windowClosedAuto")}
+					</p>
+				) : null}
 
-								if (event.shiftKey) goToPreviousMatch()
-								else goToNextMatch()
-							}
-
-							if (event.key === "Escape") closeSearch()
-						}}
-						placeholder={t("chat.searchPlaceholder")}
-						aria-label={t("chat.searchPlaceholder")}
-						className='input h-8 flex-1 py-1 text-base lg:text-sm'
-					/>
-					<span className='flex-shrink-0 whitespace-nowrap text-xs text-ink-400'>
-						{trimmedSearchQuery
-							? searchMatches.length > 0
-								? t("chat.searchResultCount", {
-										current: searchActiveIndex + 1,
-										total: searchMatches.length
-									})
-								: t("chat.searchNoResults")
-							: null}
-					</span>
-					<button
-						type='button'
-						className='btn-ghost h-8 w-8 flex-shrink-0 p-0'
-						onClick={goToPreviousMatch}
-						disabled={searchMatches.length === 0}
-						aria-label={t("chat.searchPrevious")}
-						title={t("chat.searchPrevious")}>
-						<ChevronUp className='h-4 w-4' aria-hidden='true' />
-					</button>
-					<button
-						type='button'
-						className='btn-ghost h-8 w-8 flex-shrink-0 p-0'
-						onClick={goToNextMatch}
-						disabled={searchMatches.length === 0}
-						aria-label={t("chat.searchNext")}
-						title={t("chat.searchNext")}>
-						<ChevronDown className='h-4 w-4' aria-hidden='true' />
-					</button>
-					<button
-						type='button'
-						className='btn-ghost h-8 w-8 flex-shrink-0 p-0'
-						onClick={closeSearch}
-						aria-label={t("chat.searchClose")}
-						title={t("chat.searchClose")}>
-						<X className='h-4 w-4' aria-hidden='true' />
-					</button>
-				</div>
-			) : null}
-
-			{windowClosed && canReply ? (
-				<p
-					role='status'
-					className='border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100'>
-					{t("chat.windowClosedAuto")}
-				</p>
-			) : null}
-
-			{activeTab === "activity" ? (
-				<ActivityPanel conversationId={conversation.id} active={activeTab === "activity"} />
-			) : activeTab === "media" ? (
-				<MediaTab messages={messages} />
-			) : (
 				<div className='relative flex min-h-0 flex-1 flex-col'>
 					<div ref={scrollRef} className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-6'>
 						{loading ? (
@@ -2719,17 +2194,6 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 													{dayLabel}
 												</p>
 											) : null}
-
-											{/* {message.id === dividerId ? (
-                        <div
-                          role="separator"
-                          className="my-3 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-300"
-                        >
-                          <span className="h-px flex-1 bg-brand-200 dark:bg-brand-800" />
-                          <span>{t("chat.newMessagesDivider")}</span>
-                          <span className="h-px flex-1 bg-brand-200 dark:bg-brand-800" />
-                        </div>
-                      ) : null} */}
 
 											<div className={cn("flex py-1", outbound ? "justify-end" : "justify-start")}>
 												<div
@@ -2842,9 +2306,7 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 						</button>
 					) : null}
 				</div>
-			)}
 
-			{activeTab === "messages" ? (
 				<footer className='flex-shrink-0 border-t border-ink-200 p-3 dark:border-ink-700'>
 					{blocked ? (
 						<div className='flex flex-wrap items-center justify-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-center text-xs text-rose-700 dark:bg-rose-950 dark:text-rose-200'>
@@ -2960,114 +2422,144 @@ export function ChatPanel({ conversation, onConversationChange, onBack, onToggle
 					)}
 					{lockedReason || recording ? null : <p className='mt-1.5 text-[11px] text-ink-400'>{t("chat.typingHint")}</p>}
 				</footer>
-			) : null}
 
-			<ConfirmDialog
-				open={blockModalOpen && !conversation.phone}
-				title={t("identity.localBlockTitle")}
-				body={t("identity.localBlockBody")}
-				confirmLabel={t("chat.blockContact")}
-				onConfirm={submitIdentityBlock}
-				onClose={() => setBlockModalOpen(false)}
-			/>
+				<ConfirmDialog
+					open={blockModalOpen && !conversation.phone}
+					title={t("identity.localBlockTitle")}
+					body={t("identity.localBlockBody")}
+					confirmLabel={t("chat.blockContact")}
+					onConfirm={submitIdentityBlock}
+					onClose={() => setBlockModalOpen(false)}
+				/>
 
-			<BlockNumberFormModal
-				open={blockModalOpen && Boolean(conversation.phone)}
-				initialPhone={conversation.phone}
-				onClose={() => setBlockModalOpen(false)}
-				onSubmit={submitBlock}
-			/>
+				<BlockNumberFormModal
+					open={blockModalOpen && Boolean(conversation.phone)}
+					initialPhone={conversation.phone}
+					onClose={() => setBlockModalOpen(false)}
+					onSubmit={submitBlock}
+				/>
 
-			<LeadFormModal
-				open={leadModalOpen}
-				onClose={() => setLeadModalOpen(false)}
-				onSubmit={submitLead}
-				fixedConversation={{
-					id: conversation.id,
-					label: contactName(conversation)
-				}}
-			/>
+				<LeadFormModal
+					open={leadModalOpen}
+					onClose={() => setLeadModalOpen(false)}
+					onSubmit={submitLead}
+					fixedConversation={{
+						id: conversation.id,
+						label: contactName(conversation)
+					}}
+				/>
 
-			{renameModalOpen ? (
-				<div
-					className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'
-					role='dialog'
-					aria-modal='true'
-					onClick={() => setRenameModalOpen(false)}>
+				{renameModalOpen ? (
 					<div
-						onClick={(event) => event.stopPropagation()}
-						className='w-full max-w-sm rounded-2xl border border-ink-200 bg-white p-5 shadow-xl dark:border-ink-700 dark:bg-ink-800'>
-						<h3 className='mb-1 text-sm font-semibold text-ink-900 dark:text-ink-50'>{t("chat.renameContact")}</h3>
+						className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'
+						role='dialog'
+						aria-modal='true'
+						onClick={() => setRenameModalOpen(false)}>
+						<div
+							onClick={(event) => event.stopPropagation()}
+							className='w-full max-w-sm rounded-2xl border border-ink-200 bg-white p-5 shadow-xl dark:border-ink-700 dark:bg-ink-800'>
+							<h3 className='mb-1 text-sm font-semibold text-ink-900 dark:text-ink-50'>{t("chat.renameContact")}</h3>
 
-						{conversation.nameOverridden && conversation.metaCustomerName ? (
-							<p className='mb-3 text-xs text-ink-500 dark:text-ink-400'>
-								{t("chat.whatsappSays", {
-									name: conversation.metaCustomerName
-								})}
-							</p>
-						) : null}
+							{conversation.nameOverridden && conversation.metaCustomerName ? (
+								<p className='mb-3 text-xs text-ink-500 dark:text-ink-400'>
+									{t("chat.whatsappSays", {
+										name: conversation.metaCustomerName
+									})}
+								</p>
+							) : null}
 
-						<input
-							autoFocus
-							value={renameDraft}
-							onChange={(event) => setRenameDraft(event.target.value)}
-							onKeyDown={(event) => {
-								if (event.key === "Enter") void submitRename(renameDraft)
+							<input
+								autoFocus
+								value={renameDraft}
+								onChange={(event) => setRenameDraft(event.target.value)}
+								onKeyDown={(event) => {
+									if (event.key === "Enter") void submitRename(renameDraft)
 
-								if (event.key === "Escape") setRenameModalOpen(false)
-							}}
-							maxLength={255}
-							placeholder={t("chat.renamePlaceholder")}
-							aria-label={t("chat.renameContact")}
-							className='input mb-3 w-full'
-						/>
+									if (event.key === "Escape") setRenameModalOpen(false)
+								}}
+								maxLength={255}
+								placeholder={t("chat.renamePlaceholder")}
+								aria-label={t("chat.renameContact")}
+								className='input mb-3 w-full'
+							/>
 
-						<p className='mb-4 text-[11px] text-ink-400'>{t("chat.renameHint")}</p>
+							<p className='mb-4 text-[11px] text-ink-400'>{t("chat.renameHint")}</p>
 
-						<div className='flex items-center justify-between gap-2'>
-							{conversation.nameOverridden ? (
-								<button
-									type='button'
-									onClick={() => void submitRename("")}
-									disabled={renaming}
-									className='btn-ghost px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-rose-300 dark:hover:bg-rose-950'>
-									{t("chat.resetName")}
-								</button>
-							) : (
-								<span />
-							)}
+							<div className='flex items-center justify-between gap-2'>
+								{conversation.nameOverridden ? (
+									<button
+										type='button'
+										onClick={() => void submitRename("")}
+										disabled={renaming}
+										className='btn-ghost px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-rose-300 dark:hover:bg-rose-950'>
+										{t("chat.resetName")}
+									</button>
+								) : (
+									<span />
+								)}
 
-							<div className='flex items-center gap-2'>
-								<button
-									type='button'
-									onClick={() => setRenameModalOpen(false)}
-									disabled={renaming}
-									className='btn-secondary px-3 py-1.5 text-xs'>
-									{t("common.cancel")}
-								</button>
-								<button
-									type='button'
-									onClick={() => void submitRename(renameDraft)}
-									disabled={renaming || renameDraft.trim().length === 0}
-									className='btn-primary px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50'>
-									{renaming ? <Spinner /> : null}
-									{t("common.save")}
-								</button>
+								<div className='flex items-center gap-2'>
+									<button
+										type='button'
+										onClick={() => setRenameModalOpen(false)}
+										disabled={renaming}
+										className='btn-secondary px-3 py-1.5 text-xs'>
+										{t("common.cancel")}
+									</button>
+									<button
+										type='button'
+										onClick={() => void submitRename(renameDraft)}
+										disabled={renaming || renameDraft.trim().length === 0}
+										className='btn-primary px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50'>
+										{renaming ? <Spinner /> : null}
+										{t("common.save")}
+									</button>
+								</div>
 							</div>
 						</div>
 					</div>
+				) : null}
+
+				<ConfirmDialog
+					open={pendingClear}
+					title={t("chat.clearMessages")}
+					body={t("chat.clearMessagesBody")}
+					confirmLabel={t("chat.clearMessages")}
+					tone='danger'
+					onConfirm={confirmClear}
+					onClose={() => setPendingClear(false)}
+				/>
+			</div>
+
+			{infoOpen ? (
+				<div className='fixed inset-0 z-40 bg-white dark:bg-ink-800 lg:static lg:z-auto lg:w-80 lg:flex-shrink-0 lg:border-s lg:border-ink-200 lg:dark:border-ink-700 xl:w-96'>
+					<ContactInfoSidebar
+						conversation={conversation}
+						messages={messages}
+						phoneCountry={phoneCountry}
+						blocked={blocked}
+						canManageUsers={canManageUsers}
+						canManageBlockedNumbers={canManageBlockedNumbers}
+						canUnblock={conversation.identityBlocked ? canManageUsers : Boolean(blockedEntryId)}
+						hideBusy={hideBusy}
+						unblocking={unblocking}
+						onClose={() => setInfoOpen(false)}
+						onSearch={() => {
+							setSearchOpen(true)
+
+							if (window.matchMedia("(max-width: 1023px)").matches) setInfoOpen(false)
+						}}
+						onAddLead={() => setLeadModalOpen(true)}
+						onOpenLeads={openLeads}
+						onRename={openRenameModal}
+						onBlock={() => setBlockModalOpen(true)}
+						onUnblock={() => void handleUnblock()}
+						onToggleHide={() => void handleToggleHide()}
+						onClear={() => setPendingClear(true)}
+						onConversationChange={onConversationChange}
+					/>
 				</div>
 			) : null}
-
-			<ConfirmDialog
-				open={pendingClear}
-				title={t("chat.clearMessages")}
-				body={t("chat.clearMessagesBody")}
-				confirmLabel={t("chat.clearMessages")}
-				tone='danger'
-				onConfirm={confirmClear}
-				onClose={() => setPendingClear(false)}
-			/>
 		</div>
 	)
 }
